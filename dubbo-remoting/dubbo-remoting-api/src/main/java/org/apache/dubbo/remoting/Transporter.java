@@ -27,7 +27,17 @@ import org.apache.dubbo.common.extension.SPI;
  * <a href="http://en.wikipedia.org/wiki/Client%E2%80%93server_model">Client/Server</a>
  *
  * @see org.apache.dubbo.remoting.Transporters
+ *
+ *
+ * 例如：Transporter接口在bind和connect两个方法上添加了©Adaptive注解。
+ * Dubbo在初始化扩展点时，会生成一个Transporter$Adaptive类。
+ * 里面会实现这两个方法，方法里会有一些抽象的通用逻辑，通过©Adaptive中传入的参数，找到并调用真正 的实现类。
+ * 熟悉装饰器模式的读者会很容易理解这部分的逻辑。
+ *
+ * 当该注解放在实现类上，则整个实现类会直接作为默认实现。注解在方法上需要自动生成代码。
+ *
  */
+//默认使用netty作为传输层
 @SPI("netty")
 public interface Transporter {
 

@@ -35,6 +35,13 @@ import java.lang.annotation.Target;
  * SPI provider can call {@link ExtensionLoader#getActivateExtension(URL, String, String)} to find out all activated
  * extensions with the given criteria.
  *
+ * 使用@Activate注解，可以标记对应的扩展点默认被激活启用 。
+ * 该注解还可以通过传入不同的参数，设置扩展点在不同的条件下被自动激活 。
+ * 主要的使用场景是某个扩展点的多个实现类 需要同时启用(比如Filter扩展点)
+ *
+ * Activate可以标记在类、接口、枚举类和方法上。
+ * 主要使用在有多个扩展点实现 、需要 据不同条件被激活的场景中，如Filter需要多个同时激活 ，
+ * 因为每个Filter实现的是不同的功能。 ©Activate可传入的参数很多
  * @see SPI
  * @see URL
  * @see ExtensionLoader
@@ -49,6 +56,7 @@ public @interface Activate {
      *
      * @return group names to match
      * @see ExtensionLoader#getActivateExtension(URL, String, String)
+     * URL中的分组如果匹配则激活，则可以设置多个
      */
     String[] group() default {};
 
@@ -62,6 +70,7 @@ public @interface Activate {
      * @return URL parameter keys
      * @see ExtensionLoader#getActivateExtension(URL, String)
      * @see ExtensionLoader#getActivateExtension(URL, String, String)
+     * 查找URL中如果含有该key值，则会激活
      */
     String[] value() default {};
 
@@ -70,6 +79,7 @@ public @interface Activate {
      * Deprecated since 2.7.0
      *
      * @return extension list which should be put before the current one
+     * 填写扩展点列表，表示那些扩展点要在该扩展点之前
      */
     @Deprecated
     String[] before() default {};
@@ -79,6 +89,7 @@ public @interface Activate {
      * Deprecated since 2.7.0
      *
      * @return extension list which should be put after the current one
+     * 同before，表示哪些需要在本扩展点之后
      */
     @Deprecated
     String[] after() default {};
@@ -87,6 +98,7 @@ public @interface Activate {
      * Absolute ordering info, optional
      *
      * @return absolute ordering info
+     * 整型，直接的排序信息
      */
     int order() default 0;
 }

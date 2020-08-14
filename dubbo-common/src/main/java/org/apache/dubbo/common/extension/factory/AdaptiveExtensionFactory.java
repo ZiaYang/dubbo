@@ -26,6 +26,7 @@ import java.util.List;
 
 /**
  * AdaptiveExtensionFactory
+ * 类上标注Adaptive注解，那么该类会作为默认实现，无需动态生成代码。
  */
 @Adaptive
 public class AdaptiveExtensionFactory implements ExtensionFactory {

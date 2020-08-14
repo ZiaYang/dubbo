@@ -50,6 +50,10 @@ import java.lang.annotation.Target;
  * Fails to load Extension("mina"). When user configure to use mina, dubbo will complain the extension cannot be loaded,
  * instead of reporting which extract extension implementation fails and the extract reason.
  * </p>
+ *
+ * SPI注解可以使用在类、接口和枚举类上，Dubbo框架中都是使用在接口上 。
+ * 它的主要作用就是标记这个接口是一个Dubbo SPI接口，即是一个扩展点，可以有多个不同的内置或用户 定义的实现。
+ * 运行时需要通过配置找到具体的实现类.
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
@@ -57,7 +61,7 @@ import java.lang.annotation.Target;
 public @interface SPI {
 
     /**
-     * default extension name
+     * default extension name 默认实现的key（META-INFO配置目录下配置文件中的key）名称。
      */
     String value() default "";
 

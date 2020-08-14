@@ -37,11 +37,15 @@ import static org.apache.dubbo.common.constants.CommonConstants.SERVICE_FILTER_K
 
 /**
  * ListenerProtocol
+ *
+ * SPI扩展点
+ * Wrapper 包装扩展类
  */
 public class ProtocolFilterWrapper implements Protocol {
 
     private final Protocol protocol;
 
+    // 自己实现了Protocol类，然后又传入一个protocol对象。在ExtensionLoader加载类时，会被认为是包装扩展类。
     public ProtocolFilterWrapper(Protocol protocol) {
         if (protocol == null) {
             throw new IllegalArgumentException("protocol == null");
@@ -49,6 +53,7 @@ public class ProtocolFilterWrapper implements Protocol {
         this.protocol = protocol;
     }
 
+    // 构建调用链
     private static <T> Invoker<T> buildInvokerChain(final Invoker<T> invoker, String key, String group) {
         Invoker<T> last = invoker;
         List<Filter> filters = ExtensionLoader.getExtensionLoader(Filter.class).getActivateExtension(invoker.getUrl(), key, group);
@@ -145,6 +150,8 @@ public class ProtocolFilterWrapper implements Protocol {
         return protocol.getDefaultPort();
     }
 
+    // 对protocol#export进行wrapper封装，增强实现更多功能，比如构建调用链。
+    // 装饰器模式，让子类专注于export实现，wrapper实现功能增强
     @Override
     public <T> Exporter<T> export(Invoker<T> invoker) throws RpcException {
         if (UrlUtils.isRegistry(invoker.getUrl())) {

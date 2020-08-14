@@ -40,6 +40,9 @@ import static org.apache.dubbo.rpc.cluster.Constants.REFER_KEY;
 /**
  * AbstractRegistryFactory. (SPI, Singleton, ThreadSafe)
  *
+ * AbstractRegistryFactory 实现了 RegistryFactory 接口的 getRegistry(URL url)方法。
+ * 它是一个通用实现，主要完成了加锁，以及调用抽象模板方法createRegistry(URL url)创建具体实现等操作，并缓存在内存中。
+ *
  * @see org.apache.dubbo.registry.RegistryFactory
  */
 public abstract class AbstractRegistryFactory implements RegistryFactory {
@@ -47,17 +50,18 @@ public abstract class AbstractRegistryFactory implements RegistryFactory {
     // Log output
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRegistryFactory.class);
 
-    // The lock for the acquisition process of the registry
+    // The lock for the acquisition process of the registry。获取注册中心过程中使用的锁
     protected static final ReentrantLock LOCK = new ReentrantLock();
 
-    // Registry Collection Map<RegistryAddress, Registry>
+    // Registry Collection Map<RegistryAddress, Registry> 注册中心集合
     protected static final Map<String, Registry> REGISTRIES = new HashMap<>();
 
+    // 是否已经销毁。默认为false
     private static final AtomicBoolean destroyed = new AtomicBoolean(false);
 
     /**
      * Get all registries
-     *
+     * 获取所有注册中心
      * @return all registries
      */
     public static Collection<Registry> getRegistries() {
@@ -111,6 +115,7 @@ public abstract class AbstractRegistryFactory implements RegistryFactory {
                 .build();
         String key = createRegistryCacheKey(url);
         // Lock the registry access process to ensure a single instance of the registry
+        // 使用锁确保注册中心的单例
         LOCK.lock();
         try {
             Registry registry = REGISTRIES.get(key);
@@ -141,6 +146,7 @@ public abstract class AbstractRegistryFactory implements RegistryFactory {
         return url.toServiceStringWithoutResolving();
     }
 
+    // 模板方法，交给子类实现具体逻辑。
     protected abstract Registry createRegistry(URL url);
 
 

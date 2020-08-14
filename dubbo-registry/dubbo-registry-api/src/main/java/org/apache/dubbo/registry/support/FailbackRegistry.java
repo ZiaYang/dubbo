@@ -44,23 +44,32 @@ import static org.apache.dubbo.registry.Constants.REGISTRY_RETRY_PERIOD_KEY;
 
 /**
  * FailbackRegistry. (SPI, Prototype, ThreadSafe)
+ * 注册中心 故障自动恢复。 主要是重试机制
  */
 public abstract class FailbackRegistry extends AbstractRegistry {
 
-    /*  retry task map */
+    /*  retry task map
+    *   定时器中调用retry，分别遍历重试以下集合，如果重试成功，则移除。
+    * */
 
+    // 注册失败
     private final ConcurrentMap<URL, FailedRegisteredTask> failedRegistered = new ConcurrentHashMap<URL, FailedRegisteredTask>();
 
+    // 取消注册失败
     private final ConcurrentMap<URL, FailedUnregisteredTask> failedUnregistered = new ConcurrentHashMap<URL, FailedUnregisteredTask>();
 
+    // 订阅失败
     private final ConcurrentMap<Holder, FailedSubscribedTask> failedSubscribed = new ConcurrentHashMap<Holder, FailedSubscribedTask>();
 
+    // 取消订阅失败
     private final ConcurrentMap<Holder, FailedUnsubscribedTask> failedUnsubscribed = new ConcurrentHashMap<Holder, FailedUnsubscribedTask>();
 
+    // 通知失败的URL集合
     private final ConcurrentMap<Holder, FailedNotifiedTask> failedNotified = new ConcurrentHashMap<Holder, FailedNotifiedTask>();
 
     /**
      * The time in milliseconds the retryExecutor will wait
+     * 重试机将会等待的时间间隔 ms
      */
     private final int retryPeriod;
 
@@ -226,17 +235,25 @@ public abstract class FailbackRegistry extends AbstractRegistry {
         return failedNotified;
     }
 
+    /**
+     * 实现通用性的逻辑，以及通用的异常处理。具体如何register交给定制化的子类实现。
+     * 在多层级结构中，每一层都有自己明确的分工和边界，足够抽象也留出了定制化的余地，比较灵活。
+     * 其他unregister, subscribe, unsubscribe类似。
+     * 设计模式用的很6啊
+     * @param url
+     */
     @Override
     public void register(URL url) {
         if (!acceptable(url)) {
             logger.info("URL " + url + " will not be registered to Registry. Registry " + url + " does not accept service of this protocol type.");
             return;
         }
+        // 调用AbstractRegistry的方法，将url加入集合
         super.register(url);
         removeFailedRegistered(url);
         removeFailedUnregistered(url);
         try {
-            // Sending a registration request to the server side
+            // Sending a registration request to the server side。 发送请求至注册中心
             doRegister(url);
         } catch (Exception e) {
             Throwable t = e;
@@ -407,6 +424,10 @@ public abstract class FailbackRegistry extends AbstractRegistry {
     }
 
     // ==== Template method ====
+
+    /**
+     * 交由子类实现的模板方法，当这些方法失败时就可以放入对应的重试集合中，以供重试解决。
+     */
 
     public abstract void doRegister(URL url);
 

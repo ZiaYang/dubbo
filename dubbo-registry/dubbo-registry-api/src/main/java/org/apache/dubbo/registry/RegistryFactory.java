@@ -41,6 +41,9 @@ public interface RegistryFactory {
      *
      * @param url Registry address, is not allowed to be empty
      * @return Registry reference, never return empty value
+     *
+     * 这个注解会自动生成代码实现一些逻辑，它的value参数会从URL中获取protocol键的值，并根据获取的值来调用不同的工厂类。
+     * 例如，当 url.protocol = redis时，获得RedisRegistryFactory实现类。
      */
     @Adaptive({"protocol"})
     Registry getRegistry(URL url);

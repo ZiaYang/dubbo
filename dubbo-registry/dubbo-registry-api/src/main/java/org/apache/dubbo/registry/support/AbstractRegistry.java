@@ -67,6 +67,10 @@ import static org.apache.dubbo.registry.Constants.REGISTRY__LOCAL_FILE_CACHE_ENA
 
 /**
  * AbstractRegistry. (SPI, Prototype, ThreadSafe)
+ *
+ * AbstractRegistry实现了 Registry接口中的注册、订阅、查询、通知等方法。
+ * 还实现了磁盘文件持久化注册信息这一通用方法。
+ * 但是注册、订阅、查询、通知等方法只是简单地把 URL 加入对应的集合，没有具体的注册或订阅逻辑 。
  */
 public abstract class AbstractRegistry implements Registry {
 
@@ -279,6 +283,7 @@ public abstract class AbstractRegistry implements Registry {
         return result;
     }
 
+    // 仅仅是将url加入集合，并没有实现具体的逻辑。
     @Override
     public void register(URL url) {
         if (url == null) {
@@ -386,6 +391,7 @@ public abstract class AbstractRegistry implements Registry {
 
     /**
      * Notify changes from the Provider side.
+     * 服务提供者通知服务变更
      *
      * @param url      consumer side url
      * @param listener listener
@@ -406,7 +412,8 @@ public abstract class AbstractRegistry implements Registry {
         if (logger.isInfoEnabled()) {
             logger.info("Notify urls for subscribe url " + url + ", urls: " + urls);
         }
-        // keep every provider's category.
+
+        // keep every provider's category. result保存每个提供者的目录
         Map<String, List<URL>> result = new HashMap<>();
         for (URL u : urls) {
             if (UrlUtils.isMatch(url, u)) {
@@ -424,8 +431,9 @@ public abstract class AbstractRegistry implements Registry {
             List<URL> categoryList = entry.getValue();
             categoryNotified.put(category, categoryList);
             listener.notify(categoryList);
-            // We will update our cache file after each notification.
-            // When our Registry has a subscribe failure due to network jitter, we can return at least the existing cache URL.
+            // We will update our cache file after each notification. 在收到每个通知后，我们会更新我们的本地缓存文件
+            // When our Registry has a subscribe failure due to network jitter（抖动）, we can return at least the existing cache URL.
+            // 当注册中心因为网络抖动而出现订阅失败时，我们至少可以返回已缓存的url。  算是一种备份措施。
             saveProperties(url);
         }
     }

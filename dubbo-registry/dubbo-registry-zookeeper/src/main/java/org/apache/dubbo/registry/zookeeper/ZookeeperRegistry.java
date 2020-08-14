@@ -122,6 +122,7 @@ public class ZookeeperRegistry extends FailbackRegistry {
         }
     }
 
+    // FailbackRegistry的模板方法。
     @Override
     public void doRegister(URL url) {
         try {

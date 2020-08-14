@@ -18,6 +18,7 @@ package org.apache.dubbo.common.extension;
 
 /**
  * ExtensionFactory
+ * 用来创建ExtensionLoader的工厂类，其本身也有SPI注解，还有多个工厂类实现。
  */
 @SPI
 public interface ExtensionFactory {
