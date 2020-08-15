@@ -39,6 +39,15 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
+/**
+ * 如何对服务提供者通过注@Service进行暴露的，注解扫描也委托给Spring,本质上使用asm库进行字节码扫描注解元数据。
+ *
+ * 当用户使用注解@DubboComponentScan时，会激活DubboComponentScanRegistrar。
+ * 同时生成ServiceAnnotationBeanPostProcessor 和 ReferenceAnnotationBeanPostProcessor
+ * 两种处理器，通过名称很容易知道分别是处理服务注解和消费注解
+ *
+ *
+ */
 @Import(DubboComponentScanRegistrar.class)
 public @interface DubboComponentScan {
 

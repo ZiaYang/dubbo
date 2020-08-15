@@ -66,6 +66,12 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Inherited
 @Documented
+
+/**
+ * 当Spring容器启动的时候，如果注解上面使用@Import,则会触发其注解方法selectImports。
+ * 比如 EnableDubboConfig注解中指定的DubboConfigConfigurationSelector.class,
+ * 会自动触发DubboConfigConfigurationRegistrar#selectImports 方法。
+ */
 @Import(DubboConfigConfigurationRegistrar.class)
 public @interface EnableDubboConfig {
 

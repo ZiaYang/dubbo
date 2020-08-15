@@ -50,6 +50,14 @@ import java.util.Set;
 
 /**
  * JdkCompiler. (SPI, Singleton, ThreadSafe)
+ *
+ * DdkCompiler是Dubbo编译器的另一种实现，使用了 JDK自带的编译器，原生JDK编译器 包位于 javax. tools下。
+ * 主要使用了三个东西 ：JavaFileObject 接口、ForwardingJavaFileManager接口、DavaCompiler.CompilationTask 方法。
+ * 整个动态编译过程 可以简单地总结为：
+ * 首先初始化一个JavaFileObject对象，并把代码字符串作为参数传入构造方法，
+ * 然后调用JavaCompiler.CompilationTask方法编译出具体的类。
+ * JavaFileManager负责 管理类文件的输入/输出位置。
+ *
  */
 public class JdkCompiler extends AbstractCompiler {
 
@@ -109,6 +117,15 @@ public class JdkCompiler extends AbstractCompiler {
         return classLoader.loadClass(name);
     }
 
+    /**
+     * (1) JavaFileObject接口。字符串代码会被包装成一个文件对象，并提供获取二进制流
+     *
+     * 的接口。Dubbo框架中的JavaFileObjectlmpl类可以看作该接口一种扩展实现 ，构造方法中需 要传入生成好的字符串代码，此文件对象的输入和输出都是ByteArray流。由于
+     *
+     * SimpleDavaFileObject> DavaFileObject之间的关系属于JDK中的知识，因此在本章不深入讲
+     *
+     * 解，有兴趣的读者可以自行查看JDK源码。
+     */
     private static final class JavaFileObjectImpl extends SimpleJavaFileObject {
 
         private final CharSequence source;
@@ -152,6 +169,13 @@ public class JdkCompiler extends AbstractCompiler {
         }
     }
 
+    /**
+     * (2) DavaFileManager接口。主要管理文件的读取和输出位置 。JDK中没有可以直接使用
+     *
+     * 的实现类，唯一的实现类ForwardingDavaFileManager构造器又是protect类型。因此Dubbo中 定制化实现了一个DavaFileManagerlmpl类，并通过一个自定义类加载器 ClassLoaderlmpl完
+     *
+     * 成资源的加载 。
+     */
     private static final class JavaFileManagerImpl extends ForwardingJavaFileManager<JavaFileManager> {
 
         private final ClassLoaderImpl classLoader;

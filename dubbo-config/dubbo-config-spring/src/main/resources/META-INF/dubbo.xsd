@@ -926,6 +926,7 @@
         </xsd:attribute>
     </xsd:complexType>
 
+<!-- 配置消费方全局的配置，比如connections属性代表客户端会创建TCP的连接数，客户端全局配置会覆盖providerType透传的属性-->
     <xsd:complexType name="consumerType">
         <xsd:complexContent>
             <xsd:extension base="abstractReferenceType">
@@ -974,6 +975,7 @@
         </xsd:complexContent>
     </xsd:complexType>
 
+<!--    配置消费方接口范围信息，比如引用的接口名称和是否泛化调用标志等-->
     <xsd:complexType name="referenceType">
         <xsd:complexContent>
             <xsd:extension base="abstractReferenceType">
@@ -1016,6 +1018,7 @@
         </xsd:complexContent>
     </xsd:complexType>
 
+<!--    配置服务提供者暴露的协议，Dubbo允许同时配置多个协议，但只能有一个协议默认暴露-->
     <xsd:complexType name="protocolType">
         <xsd:sequence minOccurs="0" maxOccurs="unbounded">
             <xsd:element ref="parameter" minOccurs="0" maxOccurs="unbounded"/>
@@ -1204,6 +1207,7 @@
         <xsd:anyAttribute namespace="##other" processContents="lax"/>
     </xsd:complexType>
 
+<!--    配置服务提供方的全局配置，比如服务方设置了 timeout,消费方会自动透传超时-->
     <xsd:complexType name="providerType">
         <xsd:complexContent>
             <xsd:extension base="abstractServiceType">
@@ -1347,6 +1351,7 @@
         </xsd:complexContent>
     </xsd:complexType>
 
+<!--    配置服务提供方接口范围信息，比如服务暴露的接口和具体实现类等-->
     <xsd:complexType name="serviceType">
         <xsd:complexContent>
             <xsd:extension base="abstractServiceType">
@@ -1456,6 +1461,7 @@
         </xsd:annotation>
     </xsd:element>
 
+<!--    主要配置项目要扫描的注解包-->
     <xsd:complexType name="annotationType">
         <xsd:attribute name="id" type="xsd:ID">
             <xsd:annotation>
@@ -1569,6 +1575,7 @@
         </xsd:annotation>
     </xsd:element>
 
+<!--    定义ProtocolType的标签配置-->
     <xsd:element name="protocol" type="protocolType">
         <xsd:annotation>
             <xsd:documentation><![CDATA[ Service provider config ]]></xsd:documentation>
@@ -1640,5 +1647,11 @@
             </xsd:appinfo>
         </xsd:annotation>
     </xsd:element>
+
+<!--
+xsd:complexType 理解其为协议定义约束字段，只有在这里定义的属性才会在Dubbo的XML配置文件中智能提示。
+当我们基于Dubbo做二次开发时，应该在schema中添加合适的字段，同时应该在dubbo-config-api对应的Config类中添加属性和get & set方法。
+这样用户在配置属性框架时会自动注入这个值。只有属性定义是不够的，为了让Spring正确解析标签，我们要定义element标签
+-->
 
 </xsd:schema>

@@ -37,6 +37,7 @@ import static org.apache.dubbo.config.spring.util.DubboBeanUtils.registerCommonB
  */
 public class DubboConfigConfigurationRegistrar implements ImportBeanDefinitionRegistrar {
 
+    // 将每个DubboConfigConfiguration注解包含的Bean注册到Spring容器中
     @Override
     public void registerBeanDefinitions(AnnotationMetadata importingClassMetadata, BeanDefinitionRegistry registry) {
 

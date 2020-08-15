@@ -33,9 +33,20 @@ import java.lang.annotation.Target;
  * <p>
  * Note : {@link EnableDubbo} must base on Spring Framework 4.2 and above
  *
+ * 使Dubbo的组件能够作为一个Spring Beans，等价于DubboComponentScan和EnableDubboConfig组合
+ *
  * @see DubboComponentScan
  * @see EnableDubboConfig
  * @since 2.5.8
+ *
+ *
+ * 基于注解配置原理解析：
+ * 注解处理逻辑主要包含3部分内容，
+ * 第一部分是如果用户使用了配置文件 ，则框架按需生 成对应Bean。
+ * 第二部分是要将所有使用Dubbo的注解@Service的class提升为Bean。
+ * 第三部分要为使用@Reference注解的字段或方法注入代理对象。
+ *
+ *
  */
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
@@ -43,6 +54,7 @@ import java.lang.annotation.Target;
 @Documented
 @EnableDubboConfig
 @DubboComponentScan
+// Dubbo的激活注解
 public @interface EnableDubbo {
 
     /**

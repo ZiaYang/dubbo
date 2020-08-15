@@ -53,15 +53,18 @@ public class ProtocolFilterWrapper implements Protocol {
         this.protocol = protocol;
     }
 
-    // 构建调用链
+    // 构建拦截器链
     private static <T> Invoker<T> buildInvokerChain(final Invoker<T> invoker, String key, String group) {
         Invoker<T> last = invoker;
         List<Filter> filters = ExtensionLoader.getExtensionLoader(Filter.class).getActivateExtension(invoker.getUrl(), key, group);
 
+        //过滤器列表不为空
         if (!filters.isEmpty()) {
             for (int i = filters.size() - 1; i >= 0; i--) {
                 final Filter filter = filters.get(i);
+                //会把真实的Invoker（服务对象ref）放到拦截器的末尾
                 final Invoker<T> next = last;
+                //为每个filter生成一个exporter，依次串起来
                 last = new Invoker<T>() {
 
                     @Override
@@ -152,11 +155,25 @@ public class ProtocolFilterWrapper implements Protocol {
 
     // 对protocol#export进行wrapper封装，增强实现更多功能，比如构建调用链。
     // 装饰器模式，让子类专注于export实现，wrapper实现功能增强
+    /**
+     *
+     * 进行服务暴露前，框架会做拦截器初始化。
+     * 在加载protocol扩展点时会自动注入ProtocolListenerWrapper和ProtocolFilterWrapper。
+     *
+     * 在ProtocolListenerWrapper实现中，在对服务提供者进行暴露时回调对应的监听器方法 。
+     * ProtocolFilterWrapper 会调用下一级 ListenerExporterWrapper#export 方法，在该方法内部会 触发buildInvokerChain进行拦截器构造
+     *
+     * @param invoker Service invoker
+     * @param <T>
+     * @return
+     * @throws RpcException
+     */
     @Override
     public <T> Exporter<T> export(Invoker<T> invoker) throws RpcException {
         if (UrlUtils.isRegistry(invoker.getUrl())) {
             return protocol.export(invoker);
         }
+        //先构造拦截器链（会过滤Provider端分组），然后触发Dubbo协议暴露。
         return protocol.export(buildInvokerChain(invoker, SERVICE_FILTER_KEY, CommonConstants.PROVIDER));
     }
 

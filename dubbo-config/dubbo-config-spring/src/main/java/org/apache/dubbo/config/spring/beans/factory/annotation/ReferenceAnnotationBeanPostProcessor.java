@@ -54,6 +54,15 @@ import static org.springframework.util.StringUtils.hasText;
  * that Consumer service {@link Reference} annotated fields
  *
  * @since 2.5.7
+ *
+ * 我们会在旧Service注解的服务中注入旧Reference注解，这样就可以很
+ *
+ * 方便地发起远程服务调用，Dubbo中做属性注入是通过ReferenceAnnotationBeanPostProcessor处理的，主要做以下几种事情(参考代码清单 5-10处理引用注解)：
+ *
+ * (1) 获取类中标注的@Reference注解的字段和方法。
+ *
+ * (2) 反射设置字段或方法对应的引用。
+ *
  */
 public class ReferenceAnnotationBeanPostProcessor extends AbstractAnnotationBeanPostProcessor implements
         ApplicationContextAware, ApplicationListener<ServiceBeanExportedEvent> {

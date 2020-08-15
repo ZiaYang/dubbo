@@ -180,6 +180,23 @@ public class RegistryProtocol implements Protocol {
         ));
     }
 
+    /**
+     * 注册中心控制服务暴露
+     * 在将服务实例ref转换成Invoker之后，如果有注册中心时，则会通过RegistryProtocol#export进行更细粒度的控制，比如先进行服务暴露再注册服务元数据。
+     *
+     * (1) 委托具体协议(Dubbo)进行服务暴露 ，创建NettyServer监听端口和保存服务实例。
+     *
+     * (2) 创建注册中心对象，与注册中心创建TCP连接。 (3) 注册服务元数据到注册中心 。
+     *
+     * (4) 订阅configurators节点，监听服务动态属性变更事件 。
+     *
+     * (5) 服务销毁收尾工作，比如关闭端口、反注册服务信息等。
+     *
+     * @param originInvoker
+     * @param <T>
+     * @return
+     * @throws RpcException
+     */
     @Override
     public <T> Exporter<T> export(final Invoker<T> originInvoker) throws RpcException {
         URL registryUrl = getRegistryUrl(originInvoker);
@@ -195,19 +212,21 @@ public class RegistryProtocol implements Protocol {
         overrideListeners.put(overrideSubscribeUrl, overrideSubscribeListener);
 
         providerUrl = overrideUrlWithConfig(providerUrl, overrideSubscribeListener);
-        //export invoker
+        //export invoker 服务暴露，Invoker转成exporter。打开端口，将服务实例存储到Map
         final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker, providerUrl);
 
-        // url to registry
+        // url to registry 创建注册中心实例
         final Registry registry = getRegistry(originInvoker);
         final URL registeredProviderUrl = getUrlToRegistry(providerUrl, registryUrl);
-        // decide if we need to delay publish
+        // decide if we need to delay publish 根据RegisterKey决定是否需要延迟发布
         boolean register = providerUrl.getParameter(REGISTER_KEY, true);
         if (register) {
+            //服务暴露后，注册服务元数据至服务注册中心
             register(registryUrl, registeredProviderUrl);
         }
 
         // Deprecated! Subscribe to override rules in 2.6.x or before.
+        // 监听服务接口下Configurators节点，用于处理动态配置
         registry.subscribe(overrideSubscribeUrl, overrideSubscribeListener);
 
         exporter.setRegisterUrl(registeredProviderUrl);
@@ -215,6 +234,7 @@ public class RegistryProtocol implements Protocol {
 
         notifyExport(exporter);
         //Ensure that a new exporter instance is returned every time export
+        //确保一个新的exporter实例每次都会返回
         return new DestroyableExporter<>(exporter);
     }
 
@@ -303,7 +323,7 @@ public class RegistryProtocol implements Protocol {
 
     /**
      * Get an instance of registry based on the address of invoker
-     *
+     * 基于Invoker的的URL，获取对应的注册中心实例
      * @param originInvoker
      * @return
      */
@@ -549,6 +569,7 @@ public class RegistryProtocol implements Protocol {
             return exporter.getInvoker();
         }
 
+        //Invoker销毁时注销端口和map中服务实例等资源
         @Override
         public void unexport() {
             exporter.unexport();

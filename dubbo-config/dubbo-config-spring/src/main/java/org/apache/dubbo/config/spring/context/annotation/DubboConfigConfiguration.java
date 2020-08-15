@@ -49,6 +49,9 @@ import org.springframework.context.annotation.Configuration;
  * @see ConsumerConfig
  * @see org.apache.dubbo.config.ConfigCenterConfig
  * @since 2.5.8
+ *
+ * 因为@EnableConfigurationBeanBinding允许指定多个@EnableConfigurationBeanBinding注解,
+ * Dubbo会根据用户配置属性自动填充这些承载的对象
  */
 public class DubboConfigConfiguration {
 

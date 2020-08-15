@@ -25,6 +25,12 @@ import java.util.regex.Pattern;
 
 /**
  * JavassistCompiler. (SPI, Singleton, ThreadSafe)
+ *
+ * 由于 我们之前已经生成了代码字符串，因此在JavassistCompiler中，就是不断通过正则表达式匹
+ * 配不同部位的代码。
+ * 然后调用Javassist库中的API生成不同部位的代码，最后得到一个完整的 Class对象。
+ *
+ *
  */
 public class JavassistCompiler extends AbstractCompiler {
 
@@ -38,6 +44,19 @@ public class JavassistCompiler extends AbstractCompiler {
 
     private static final Pattern FIELD_PATTERN = Pattern.compile("[^\n]+=[^\n]+;");
 
+    /**
+     * (1) 初始化Javassist,设置默认参数，如设置当前的classpath
+     * (2) 通过正则匹配出所有import的包，并使用Javassist添加import
+     * (3) 通过正则匹配出所有extends的包，创建Class对象，并使用Javassist添加extends
+     * (4) 通过正则匹配出所有implements包，并使用Javassist添加implements
+     * (5) 通过正则匹配出类里面所有内容 ，即得到｛｝中的内容，再通过正则匹配出所有方法,并使用Javassist添加类方法。
+     * (6) 生成Class对象。
+     *
+     * @param name
+     * @param source
+     * @return
+     * @throws Throwable
+     */
     @Override
     public Class<?> doCompile(String name, String source) throws Throwable {
         CtClassBuilder builder = new CtClassBuilder();
