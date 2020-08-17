@@ -42,7 +42,10 @@ public interface Directory<T> extends Node {
 
     /**
      * list invokers.
+     * invokers列表
      *
+     * Cluster会把拉取的服务列表聚合成一个Invoker,每次RPC调用前会通过Directory#list获取providers地址
+     * （已经生成好的Invoker列表），获取这些服务列表给后续路由和负载均衡使用。
      * @return invokers
      */
     List<Invoker<T>> list(Invocation invocation) throws RpcException;

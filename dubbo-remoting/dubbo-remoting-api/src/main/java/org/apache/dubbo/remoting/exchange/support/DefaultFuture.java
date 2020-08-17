@@ -43,13 +43,23 @@ import static org.apache.dubbo.common.constants.CommonConstants.TIMEOUT_KEY;
 
 /**
  * DefaultFuture.
+ *
+ * 当客户端多个线程并发请求时，框架内部会调用DefaultFuture对象的get方法进行等待。
+ * 在请求发起时，框架内部会创建Request对象，这个时候会被分配一个唯一id, DefaultFuture
+ * 可以从Request对象中获取id,并将关联关系存储到静态HashMap中，就是图6-3中的Futures 集合。
+ *
+ * 当客户端收到响应时，会根据Response对象中的id，从Futures集合中查找对应
+ * DefaultFuture对象，最终会唤醒对应的线程并通知结果。
+ * 客户端也会启动一个定时扫描线程去探测超时没有返回的请求。
  */
 public class DefaultFuture extends CompletableFuture<Object> {
 
     private static final Logger logger = LoggerFactory.getLogger(DefaultFuture.class);
 
+    //id -> Channel 全局共享的缓存Channel
     private static final Map<Long, Channel> CHANNELS = new ConcurrentHashMap<>();
 
+    //id -> DefaultFuture 全局共享的Futures
     private static final Map<Long, DefaultFuture> FUTURES = new ConcurrentHashMap<>();
 
     public static final Timer TIME_OUT_TIMER = new HashedWheelTimer(
@@ -81,7 +91,7 @@ public class DefaultFuture extends CompletableFuture<Object> {
         this.request = request;
         this.id = request.getId();
         this.timeout = timeout > 0 ? timeout : channel.getUrl().getPositiveParameter(TIMEOUT_KEY, DEFAULT_TIMEOUT);
-        // put into waiting map.
+        // put into waiting map. 将请求放到等待Map（Futures，Channels）
         FUTURES.put(id, this);
         CHANNELS.put(id, channel);
     }
@@ -163,13 +173,16 @@ public class DefaultFuture extends CompletableFuture<Object> {
         received(channel, response, false);
     }
 
+    //收到响应结果后，从Futures缓存中找到对应的请求ID
     public static void received(Channel channel, Response response, boolean timeout) {
         try {
             DefaultFuture future = FUTURES.remove(response.getId());
             if (future != null) {
+                //检查请求是否超时
                 Timeout t = future.timeoutCheckTask;
                 if (!timeout) {
                     // decrease Time
+                    // 如果没有超时，则取消TimerTask。
                     t.cancel();
                 }
                 future.doReceived(response);
@@ -200,6 +213,7 @@ public class DefaultFuture extends CompletableFuture<Object> {
         this.cancel(true);
     }
 
+    //执行接收响应逻辑
     private void doReceived(Response res) {
         if (res == null) {
             throw new IllegalStateException("response cannot be null");

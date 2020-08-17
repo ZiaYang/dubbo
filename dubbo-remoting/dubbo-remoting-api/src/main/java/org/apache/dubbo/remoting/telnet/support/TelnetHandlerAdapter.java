@@ -28,6 +28,12 @@ import org.apache.dubbo.remoting.transport.ChannelHandlerAdapter;
 import static org.apache.dubbo.common.constants.CommonConstants.COMMA_SPLIT_PATTERN;
 import static org.apache.dubbo.remoting.Constants.TELNET;
 
+/**
+ *
+ * 完成Telnet指令转发的核心实现类是TelnetHandlerAdapter。
+ * 它的实现非常简单，首先将用户输入的指令识别成commandC比如invoke>Is和status),然后将剩余的内容解析成message。
+ * message会交给命令实现者去处理。实现代码类在TelnetHandlerAdapter#telnet中。
+ */
 public class TelnetHandlerAdapter extends ChannelHandlerAdapter implements TelnetHandler {
 
     private final ExtensionLoader<TelnetHandler> extensionLoader = ExtensionLoader.getExtensionLoader(TelnetHandler.class);
@@ -41,10 +47,11 @@ public class TelnetHandlerAdapter extends ChannelHandlerAdapter implements Telne
         message = message.trim();
         String command;
         if (message.length() > 0) {
+            //找到消息字符串中的第一个空格，准备将命令和命令参数分开提取
             int i = message.indexOf(' ');
             if (i > 0) {
-                command = message.substring(0, i).trim();
-                message = message.substring(i + 1).trim();
+                command = message.substring(0, i).trim();//提取执行命令
+                message = message.substring(i + 1).trim();//提取命令后的所有字符串
             } else {
                 command = message;
                 message = "";
@@ -52,10 +59,13 @@ public class TelnetHandlerAdapter extends ChannelHandlerAdapter implements Telne
         } else {
             command = "";
         }
+
         if (command.length() > 0) {
+            //检查系统是否有命令对应的扩展点
             if (extensionLoader.hasExtension(command)) {
                 if (commandEnabled(channel.getUrl(), command)) {
                     try {
+                        //交给具体扩展点执行
                         String result = extensionLoader.getExtension(command).telnet(channel, message);
                         if (result == null) {
                             return null;
@@ -74,8 +84,9 @@ public class TelnetHandlerAdapter extends ChannelHandlerAdapter implements Telne
                 buf.append(command);
             }
         }
+
         if (buf.length() > 0) {
-            buf.append("\r\n");
+            buf.append("\r\n");//在telnet消息结尾追加回车和换行符
         }
         if (StringUtils.isNotEmpty(prompt) && !noprompt) {
             buf.append(prompt);

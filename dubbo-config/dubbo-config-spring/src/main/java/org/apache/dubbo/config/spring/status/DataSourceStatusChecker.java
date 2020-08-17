@@ -36,6 +36,7 @@ import java.util.Optional;
 
 /**
  * DataSourceStatusChecker
+ * 数据库状态检查
  */
 @Activate
 public class DataSourceStatusChecker implements StatusChecker {

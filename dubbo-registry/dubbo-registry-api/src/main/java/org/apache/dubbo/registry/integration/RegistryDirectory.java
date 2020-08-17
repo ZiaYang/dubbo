@@ -225,6 +225,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         }
     }
 
+    //服务变更通知触发行为
     @Override
     public synchronized void notify(List<URL> urls) {
         Map<String, List<URL>> categoryUrls = urls.stream()
@@ -273,9 +274,12 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
     /**
      * Convert the invokerURL list to the Invoker Map. The rules of the conversion are as follows:
+     * 将InvokerURL list转换成Invoker Map.下列是转换规则：
+     *
      * <ol>
      * <li> If URL has been converted to invoker, it is no longer re-referenced and obtained directly from the cache,
      * and notice that any parameter changes in the URL will be re-referenced.</li>
+     * 如果URL已经被转换成了invoker，
      * <li>If the incoming invoker list is not empty, it means that it is the latest invoker list.</li>
      * <li>If the list of incoming invokerUrl is empty, It means that the rule is only a override rule or a route
      * rule, which needs to be re-contrasted to decide whether to re-reference.</li>
@@ -290,7 +294,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         if (invokerUrls.size() == 1
                 && invokerUrls.get(0) != null
                 && EMPTY_PROTOCOL.equals(invokerUrls.get(0).getProtocol())) {
-            this.forbidden = true; // Forbid to access
+            this.forbidden = true; // Forbid to access 禁止访问
             this.invokers = Collections.emptyList();
             routerChain.setInvokers(this.invokers);
             destroyAllInvokers(); // Close all invokers
@@ -408,11 +412,15 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         }
         Set<String> keys = new HashSet<>();
         String queryProtocols = this.queryMap.get(PROTOCOL_KEY);
+
+        //循环遍历providerUrl
         for (URL providerUrl : urls) {
             // If protocol is configured at the reference side, only the matching protocol is selected
             if (queryProtocols != null && queryProtocols.length() > 0) {
                 boolean accept = false;
+                //如果支持多个协议消费，那么中间用","隔开.
                 String[] acceptProtocols = queryProtocols.split(",");
+                //根据消费方protocol配置，过滤不匹配协议.
                 for (String acceptProtocol : acceptProtocols) {
                     if (providerUrl.getProtocol().equals(acceptProtocol)) {
                         accept = true;
@@ -433,17 +441,21 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                         ExtensionLoader.getExtensionLoader(Protocol.class).getSupportedExtensions()));
                 continue;
             }
+            //合并provider端配置数据，比如服务端IP和port等。
             URL url = mergeUrl(providerUrl);
 
             String key = url.toFullString(); // The parameter urls are sorted
-            if (keys.contains(key)) { // Repeated url
+            if (keys.contains(key)) { // Repeated url 忽略重复推送的服务列表。去重
                 continue;
             }
             keys.add(key);
-            // Cache key is url that does not merge with consumer side parameters, regardless of how the consumer combines parameters, if the server url changes, then refer again
-            Map<String, Invoker<T>> localUrlInvokerMap = this.urlInvokerMap; // local reference
+
+            // Cache key is url that does not merge with consumer side parameters, url就是缓存key
+            // regardless(无论） of how the consumer combines parameters,
+            // if the server url changes, then refer again
+            Map<String, Invoker<T>> localUrlInvokerMap = this.urlInvokerMap; // local reference 本地缓存的InvokerMap
             Invoker<T> invoker = localUrlInvokerMap == null ? null : localUrlInvokerMap.get(key);
-            if (invoker == null) { // Not in the cache, refer again
+            if (invoker == null) { // Not in the cache, refer again。如果url不在本地缓存中，那么就重新引用。
                 try {
                     boolean enabled = true;
                     if (url.hasParameter(DISABLED_KEY)) {
@@ -452,6 +464,16 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                         enabled = url.getParameter(ENABLED_KEY, true);
                     }
                     if (enabled) {
+                        /**
+                         * 使用具体协议创建远程连接. delegate代理者
+                         *
+                         * 在真实远程连接建立后也会发起拦截器构建操作
+                         * 处理逻辑在{@link org.apache.dubbo.rpc.protocol.ProtocolFilterWrapper#refer(Class, URL)}中触发链式构造。
+                         *
+                         * 具体Invoker创建是在DubboProtocol#refer中实现的，Dubbo协议在返回DubboInvoker对象之前会先初始化客户端连接对象
+                         * Dubbo支持客户端是否立即和远程服务建立TCP连接是lazy属性决定的，默认会全部连接。
+                         * DubboProtocol#refer内部会调用 DubboProtocol#initClient负责建立客户端连接和初始化Handler
+                         */
                         invoker = new InvokerDelegate<>(protocol.refer(serviceType, url), url, providerUrl);
                     }
                 } catch (Throwable t) {
@@ -461,6 +483,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                     newUrlInvokerMap.put(key, invoker);
                 }
             } else {
+                //缓存中已有了，直接使用该invoker
                 newUrlInvokerMap.put(key, invoker);
             }
         }

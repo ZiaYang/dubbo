@@ -48,6 +48,8 @@ public interface Timeout {
      * Attempts to cancel the {@link TimerTask} associated with this handle.
      * If the task has been executed or cancelled already, it will return with
      * no side effect.
+     * 尝试取消handle关联的TimerTask。
+     * 如果任务已经执行完成或者被取消，它会无副作用返回。
      *
      * @return True if the cancellation completed successfully, otherwise false
      */

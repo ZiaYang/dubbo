@@ -21,6 +21,9 @@ import org.apache.dubbo.common.URL;
 import org.apache.dubbo.remoting.ChannelHandler;
 import org.apache.dubbo.remoting.Dispatcher;
 
+/**
+ * 默认返回null
+ */
 public class MockDispatcher implements Dispatcher {
     @Override
     public ChannelHandler dispatch(ChannelHandler handler, URL url) {

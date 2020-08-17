@@ -70,6 +70,16 @@ public class DecodeableRpcResult extends AppResponse implements Codec, Decodeabl
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * 解码响应
+     * 相比解码请求而言，解码响应要简单得多，只需按照flag处理相应结果。
+     * 而解码请求要解析服务方法参数等等构造RpcInvocation
+     *
+     * @param channel channel.
+     * @param input   input stream.
+     * @return
+     * @throws IOException
+     */
     @Override
     public Object decode(Channel channel, InputStream input) throws IOException {
         if (log.isDebugEnabled()) {
@@ -82,15 +92,18 @@ public class DecodeableRpcResult extends AppResponse implements Codec, Decodeabl
 
         byte flag = in.readByte();
         switch (flag) {
+            //如果返回结果标记为null值
             case DubboCodec.RESPONSE_NULL_VALUE:
                 break;
             case DubboCodec.RESPONSE_VALUE:
                 handleValue(in);
                 break;
             case DubboCodec.RESPONSE_WITH_EXCEPTION:
+                //保存读取的返回值异常结果
                 handleException(in);
                 break;
             case DubboCodec.RESPONSE_NULL_VALUE_WITH_ATTACHMENTS:
+                //读取返回值为null，并且有隐式参数
                 handleAttachment(in);
                 break;
             case DubboCodec.RESPONSE_VALUE_WITH_ATTACHMENTS:
@@ -102,6 +115,7 @@ public class DecodeableRpcResult extends AppResponse implements Codec, Decodeabl
                 handleAttachment(in);
                 break;
             default:
+                //无法识别的flag
                 throw new IOException("Unknown result flag, expect '0' '1' '2' '3' '4' '5', but received: " + flag);
         }
         if (in instanceof Cleanable) {
@@ -133,9 +147,11 @@ public class DecodeableRpcResult extends AppResponse implements Codec, Decodeabl
             if (invocation instanceof RpcInvocation) {
                 returnTypes = ((RpcInvocation) invocation).getReturnTypes();
             } else {
+                //读取方法调用返回值类型
                 returnTypes = RpcUtils.getReturnTypes(invocation);
             }
             Object value = null;
+            //如果返回值包含泛型，则调用反序列化解析接口
             if (ArrayUtils.isEmpty(returnTypes)) {
                 // This almost never happens?
                 value = in.readObject();

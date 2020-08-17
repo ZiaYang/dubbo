@@ -27,6 +27,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.HEARTBEAT_EVENT;
  */
 public class Request {
 
+    //调用ID
     private static final AtomicLong INVOKE_ID = new AtomicLong(0);
 
     private final long mId;
@@ -35,6 +36,7 @@ public class Request {
 
     private boolean mTwoWay = true;
 
+    //事件标识，false 数据包或者响应包。 true 心跳包
     private boolean mEvent = false;
 
     private boolean mBroken = false;
@@ -42,6 +44,7 @@ public class Request {
     private Object mData;
 
     public Request() {
+        //每次新建一个请求都分配一个新的ID。这个ID是consumer分配的。
         mId = newId();
     }
 
@@ -51,6 +54,7 @@ public class Request {
 
     private static long newId() {
         // getAndIncrement() When it grows to MAX_VALUE, it will grow to MIN_VALUE, and the negative can be used as ID
+        // getAndIncrement() 当它增长到MAX_VALUE时，它会增长到MIN_VALUE，负值亦可以作为ID
         return INVOKE_ID.getAndIncrement();
     }
 

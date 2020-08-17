@@ -156,7 +156,7 @@ final class HeaderExchangeChannel implements ExchangeChannel {
         }
     }
 
-    // graceful close
+    // graceful close 优雅关闭
     @Override
     public void close(int timeout) {
         if (closed) {

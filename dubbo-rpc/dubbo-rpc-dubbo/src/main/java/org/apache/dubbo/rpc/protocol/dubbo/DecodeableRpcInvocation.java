@@ -94,21 +94,35 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * 解码请求
+     *
+     * 在解码请求时，是严格按照客户端写数据顺序来处理的 。
+     *
+     * @param channel channel.
+     * @param input   input stream.
+     * @return
+     * @throws IOException
+     */
     @Override
     public Object decode(Channel channel, InputStream input) throws IOException {
         ObjectInput in = CodecSupport.getSerialization(channel.getUrl(), serializationType)
                 .deserialize(channel.getUrl(), input);
 
+        //读取框架版本
         String dubboVersion = in.readUTF();
         request.setVersion(dubboVersion);
         setAttachment(DUBBO_VERSION_KEY, dubboVersion);
 
         String path = in.readUTF();
+        //读取调用接口全称
         setAttachment(PATH_KEY, path);
+        //读取接口指定的版本，默认为0.0.0.0，实现分组和版本隔离
         setAttachment(VERSION_KEY, in.readUTF());
-
+        //读取方法名称
         setMethodName(in.readUTF());
 
+        //读取方法参数类型，通过类型能够解析出实际参数个数
         String desc = in.readUTF();
         setParameterTypesDesc(desc);
 
@@ -136,7 +150,7 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
                 args = new Object[pts.length];
                 for (int i = 0; i < args.length; i++) {
                     try {
-                        args[i] = in.readObject(pts[i]);
+                        args[i] = in.readObject(pts[i]);//依次读取方法参数值，具体解析参数值是和序列化协议相关的
                     } catch (Exception e) {
                         if (log.isWarnEnabled()) {
                             log.warn("Decode argument failed: " + e.getMessage(), e);
@@ -146,6 +160,7 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
             }
             setParameterTypes(pts);
 
+            //读取隐式参数，比如同机房优先调用会读取其中的tag值
             Map<String, Object> map = in.readAttachments();
             if (map != null && map.size() > 0) {
                 Map<String, Object> attachment = getObjectAttachments();
@@ -156,7 +171,8 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
                 setObjectAttachments(attachment);
             }
 
-            //decode argument ,may be callback
+            //decode argument ,may be callback。解码参数，可能是回调。
+            //处理异步参数回调，如果有则在服务端创建reference代理实例。因为参数是回调客户端方法，所以需要在服务端创建客户端连接代理 。
             for (int i = 0; i < args.length; i++) {
                 args[i] = decodeInvocationArgument(channel, this, pts, i, args[i]);
             }

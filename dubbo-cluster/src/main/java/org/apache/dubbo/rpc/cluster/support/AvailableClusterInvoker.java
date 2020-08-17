@@ -27,7 +27,7 @@ import java.util.List;
 
 /**
  * AvailableCluster
- *
+ * Dubbo所有概念都在向Invoker靠拢
  */
 public class AvailableClusterInvoker<T> extends AbstractClusterInvoker<T> {
 
@@ -37,7 +37,11 @@ public class AvailableClusterInvoker<T> extends AbstractClusterInvoker<T> {
 
     @Override
     public Result doInvoke(Invocation invocation, List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
+
+        //注册中心 invoker实例
         for (Invoker<T> invoker : invokers) {
+            //判断特定注册中心是否包含provider服务
+            //这里发起的invoke实际上会通过注册中心RegistryDirectory获取真实provider机器列表进行路由和负载均衡调用
             if (invoker.isAvailable()) {
                 return invoker.invoke(invocation);
             }

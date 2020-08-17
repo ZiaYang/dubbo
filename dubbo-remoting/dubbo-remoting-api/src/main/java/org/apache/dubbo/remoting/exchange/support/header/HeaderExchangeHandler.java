@@ -41,6 +41,14 @@ import static org.apache.dubbo.common.constants.CommonConstants.READONLY_EVENT;
 
 /**
  * ExchangeReceiver
+ *
+ * 在Dubbo框架内部，所有方法调用会被抽象成Request/Response,每次调用（一次会话）都会创建一个请求Request。
+ * 如果是方法调用则会返回一个Response对象。
+ * HeaderExchangeHandler用来处理这种场景，它主要负责以下4种事情。
+ * (1) 更新发送和读取请求时间戳。
+ * (2) 判断请求格式或编解码是否有错 ，并响应客户端失则的具体原因。
+ * (3) 处理Request请求和Response正常响应。
+ * (4) 支持Telnet调用。
  */
 public class HeaderExchangeHandler implements ChannelHandlerDelegate {
 
@@ -55,6 +63,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
         this.handler = handler;
     }
 
+    //处理响应结果
     static void handleResponse(Channel channel, Response response) throws RemotingException {
         if (response != null && !response.isHeartbeat()) {
             DefaultFuture.received(channel, response);
@@ -162,11 +171,18 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
         }
     }
 
+    /**
+     * 请求响应Handler具体实现
+     *
+     * @param channel channel.
+     * @param message message.
+     * @throws RemotingException
+     */
     @Override
     public void received(Channel channel, Object message) throws RemotingException {
         final ExchangeChannel exchangeChannel = HeaderExchangeChannel.getOrAddChannel(channel);
         if (message instanceof Request) {
-            // handle request.
+            // handle request. 处理请求
             Request request = (Request) message;
             if (request.isEvent()) {
                 handlerEvent(channel, request);
@@ -177,10 +193,13 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
                     handler.received(exchangeChannel, request.getData());
                 }
             }
+            //处理响应response
         } else if (message instanceof Response) {
             handleResponse(channel, (Response) message);
         } else if (message instanceof String) {
+            //处理Telnet，telnet的message就是一个String
             if (isClientSide(channel)) {
+                //作为客户端，不支持Telnet调用，只有服务端支持
                 Exception e = new Exception("Dubbo client can not supported string message: " + message + " in channel: " + channel + ", url: " + channel.getUrl());
                 logger.error(e.getMessage(), e);
             } else {

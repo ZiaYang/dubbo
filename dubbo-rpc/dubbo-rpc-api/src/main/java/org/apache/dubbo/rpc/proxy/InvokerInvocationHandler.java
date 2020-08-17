@@ -29,6 +29,9 @@ import java.lang.reflect.Method;
 
 /**
  * InvokerHandler
+ *
+ * 把Invoker转换成接口代理。最终代理接口都会创建InvokerInvocationHandler，这个类实现了JDK的InvocationHandler接口。
+ * 所以服务暴露的 Dubbo接口都会委托给代理去发起远程调用(injvm协议除外)。
  */
 public class InvokerInvocationHandler implements InvocationHandler {
     private static final Logger logger = LoggerFactory.getLogger(InvokerInvocationHandler.class);

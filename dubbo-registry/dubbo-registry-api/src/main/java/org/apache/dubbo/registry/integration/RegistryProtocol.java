@@ -107,6 +107,14 @@ import static org.apache.dubbo.rpc.cluster.Constants.WEIGHT_KEY;
 
 /**
  * RegistryProtocol
+ *
+ * todo 所以在服务暴露时，会按照什么顺序呢？怎么安排各个类的调用顺序的呢？
+ *
+ * 在进行服务暴露前，框架会做拦截器初始化
+ * 在加载protocol扩展点时会自动注入ProtocolListenerWrapper和ProtocolFilterWrapper
+ *
+ * ProtocolFilterWrapper -> ProtocolListenerWrapper -> DubboProtocol -> RegistryProtocol ?
+ *
  */
 public class RegistryProtocol implements Protocol {
     public static final String[] DEFAULT_REGISTER_PROVIDER_KEYS = {
@@ -255,6 +263,13 @@ public class RegistryProtocol implements Protocol {
         return serviceConfigurationListener.overrideUrl(providerUrl);
     }
 
+    /**
+     * 很多使用Dubbo框架的应用可能存在同一个 JVM暴露了远程服务，同时同一个JVM内部又引用了自身服务的情况，Dubbo默认会把远程 服务用injvm协议再暴露一份，这样消费方直接消费同一个JVM内部的服务，避免了跨网络进 行远程通信。
+     * @param originInvoker
+     * @param providerUrl
+     * @param <T>
+     * @return
+     */
     @SuppressWarnings("unchecked")
     private <T> ExporterChangeableWrapper<T> doLocalExport(final Invoker<T> originInvoker, URL providerUrl) {
         String key = getCacheKey(originInvoker);
@@ -410,16 +425,32 @@ public class RegistryProtocol implements Protocol {
         return key;
     }
 
+    /**
+     * Dubbo通过注册中心消费
+     *
+     * 当经过注册中心消费时，主要通过RegistryProtocol#refer触发数据拉取、订阅和服务
+     * Invoker转换等操作，其中最核心的数据结构是 RegistryDirector
+     *
+     * @param type Service class
+     * @param url  URL address for the remote service
+     * @param <T>
+     * @return
+     * @throws RpcException
+     */
     @Override
     @SuppressWarnings("unchecked")
     public <T> Invoker<T> refer(Class<T> type, URL url) throws RpcException {
+        //获取具体注册中心协议，比如Zookeeper。
         url = getRegistryUrl(url);
+
+        //创建具体注册中心实例
         Registry registry = registryFactory.getRegistry(url);
         if (RegistryService.class.equals(type)) {
             return proxyFactory.getInvoker((T) registry, type, url);
         }
 
-        // group="a,b" or group="*"
+        //真实消费方的元数据信息存储于refer属性中.
+        // group="a,b" or group="*". 根据配置处理多分组结果聚合
         Map<String, String> qs = StringUtils.parseQueryString(url.getParameterAndDecoded(REFER_KEY));
         String group = qs.get(GROUP_KEY);
         if (group != null && group.length() > 0) {
@@ -427,6 +458,7 @@ public class RegistryProtocol implements Protocol {
                 return doRefer(getMergeableCluster(), registry, type, url);
             }
         }
+        //处理订阅数据并通过Cluster合并多个Invoker
         return doRefer(cluster, registry, type, url);
     }
 
@@ -434,20 +466,46 @@ public class RegistryProtocol implements Protocol {
         return ExtensionLoader.getExtensionLoader(Cluster.class).getExtension("mergeable");
     }
 
+    /**
+     *
+     *
+     *
+     * @param cluster
+     * @param registry
+     * @param type
+     * @param url
+     * @param <T>
+     * @return
+     */
     private <T> Invoker<T> doRefer(Cluster cluster, Registry registry, Class<T> type, URL url) {
+        //RegistryDirectory消费核心关键，持有实际Invoker和接收订阅通知.
+        //RegistryDirectory实现了 NotifyListener接口，服务变更会触发这个类回调notify方法，用于重新引用服务.
         RegistryDirectory<T> directory = new RegistryDirectory<T>(type, url);
         directory.setRegistry(registry);
         directory.setProtocol(protocol);
+
         // all attributes of REFER_KEY
         Map<String, String> parameters = new HashMap<String, String>(directory.getConsumerUrl().getParameters());
         URL subscribeUrl = new URL(CONSUMER_PROTOCOL, parameters.remove(REGISTER_IP_KEY), 0, type.getName(), parameters);
         if (directory.isShouldRegister()) {
             directory.setRegisteredConsumerUrl(subscribeUrl);
+            //注册消费放元数据信息到注册中心，比如消费方应用名、IP和端口号等.
             registry.register(directory.getRegisteredConsumerUrl());
         }
         directory.buildRouterChain(subscribeUrl);
+
+        /**
+         * 具体远程Invoker是在哪里创建的呢？客户端调用拦截器又是在哪里构造的呢 ？
+         *
+         * 第一次发起订阅时会进行一次数据拉取操作，同时触发{@link RegistryDirectory#notify(List)}方法。
+         * 这里的通知数据是某一个类别的全量数据，比如providers和routers类别数据。
+         *
+         * 当通知providers数据时，在{@link RegistryDirectory#toInvokers(List)}方法内完成Invoker转换。
+         */
+        //订阅服务提供者、路由、动态配置
         directory.subscribe(toSubscribeUrl(subscribeUrl));
 
+        //通过Cluster合并Invokers，同时默认也会启用FailoverCluster策略进行服务调用重试
         Invoker<T> invoker = cluster.join(directory);
         List<RegistryProtocolListener> listeners = findRegistryProtocolListeners(url);
         if (CollectionUtils.isEmpty(listeners)) {

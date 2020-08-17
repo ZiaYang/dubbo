@@ -31,6 +31,11 @@ import java.io.IOException;
 import static org.apache.dubbo.rpc.Constants.INPUT_KEY;
 import static org.apache.dubbo.rpc.Constants.OUTPUT_KEY;
 
+/**
+ * 因为TCP流的报文中可能包含多个RPC请求，Dubbo框架尝试一次性读取更多完整报文编解码生成对象。
+ * 也就是DubboCountCodec,它的实现思想比较简单：
+ * 依次调用 DubboCodec去解码，如果能解码成完整报文则加入消息列表，然后触发下一个Handler方法调用。
+ */
 public final class DubboCountCodec implements Codec2 {
 
     private DubboCodec codec = new DubboCodec();

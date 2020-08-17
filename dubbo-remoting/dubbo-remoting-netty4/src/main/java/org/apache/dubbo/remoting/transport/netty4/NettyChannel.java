@@ -44,6 +44,7 @@ final class NettyChannel extends AbstractChannel {
     private static final Logger logger = LoggerFactory.getLogger(NettyChannel.class);
     /**
      * the cache for netty channel and dubbo channel
+     *
      */
     private static final ConcurrentMap<Channel, NettyChannel> CHANNEL_MAP = new ConcurrentHashMap<Channel, NettyChannel>();
     /**
@@ -74,7 +75,8 @@ final class NettyChannel extends AbstractChannel {
     /**
      * Get dubbo channel by netty channel through channel cache.
      * Put netty channel into it if dubbo channel don't exist in the cache.
-     *
+     * 通过Channel缓存，根据nettyChannel获取DubboChannel
+     * 如果DubboChannel不存在，则将它存入
      * @param ch      netty channel
      * @param url
      * @param handler dubbo handler that contain netty's handler

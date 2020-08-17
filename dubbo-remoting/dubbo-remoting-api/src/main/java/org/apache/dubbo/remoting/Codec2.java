@@ -22,6 +22,9 @@ import org.apache.dubbo.remoting.buffer.ChannelBuffer;
 
 import java.io.IOException;
 
+/**
+ * encode、decode都使用了@Adaptive注解，ExtensionLoader会自动生成具体代码。
+ */
 @SPI
 public interface Codec2 {
 

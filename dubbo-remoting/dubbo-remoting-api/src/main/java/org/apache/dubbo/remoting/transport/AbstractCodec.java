@@ -32,6 +32,8 @@ import static org.apache.dubbo.common.constants.CommonConstants.SIDE_KEY;
 
 /**
  * AbstractCodec
+ *
+ * AbstractCodec主要提供基础能力，比如校验报文长度和查找具体编解码器
  */
 public abstract class AbstractCodec implements Codec2 {
 

@@ -31,6 +31,7 @@ import java.lang.reflect.Method;
 
 /**
  * SpringStatusChecker
+ * Spring状态检查
  */
 @Activate
 public class SpringStatusChecker implements StatusChecker {

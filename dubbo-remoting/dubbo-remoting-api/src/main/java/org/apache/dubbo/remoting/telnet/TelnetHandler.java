@@ -22,13 +22,16 @@ import org.apache.dubbo.remoting.RemotingException;
 
 /**
  * TelnetHandler
+ * 为了支持未来更多的Telnet命令和扩展性,Telnet指令解析被设置成了扩展点TelnetHandler，每个Telnet指令都会实现这个扩展点
+ *
  */
 @SPI
 public interface TelnetHandler {
 
     /**
      * telnet.
-     *
+     * 通过这个扩展点的定义，能够解决扩展更多命令的诉求。
+     * message包含处理命令之外的所有字符串参数，具体如何使用这些参数及这些参数的定义全部交给命令实现者决定 。
      * @param channel
      * @param message
      */

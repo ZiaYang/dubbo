@@ -23,6 +23,14 @@ import org.apache.dubbo.remoting.transport.dispatcher.all.AllDispatcher;
 
 /**
  * ChannelHandlerWrapper (SPI, Singleton, ThreadSafe)
+ * Dubbo中提供的线程池负责业务方法调用 ，我们称为业务线程，Dispatcher就是业务线程池派发器。
+ *
+ * 这里需要注意的是，Dispatcher真实的职责是创建具有线程派发能力的ChannelHandler。
+ * 比如AllChannelHandler、MessageOnlyChannel、Handler和ExecutionChannelHandler等，其本身并不具备线程派发能力
+ *
+ * 具体业务方需要根据使用场景启用不同的策略。
+ * 建议使用默认策略即可，如果在TCP连接 中需要做安全加密或校验，则可以使用ConnectionOrderedDispatcher策略。
+ * 如果引入新的线程池，则不可避免地导致额外的线程切换，用户可在Dubbo配置中指定dispatcher属性让具 体策略生效。
  */
 @SPI(AllDispatcher.NAME)
 public interface Dispatcher {

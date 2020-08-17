@@ -83,6 +83,21 @@ import static org.apache.dubbo.rpc.cluster.Constants.REFER_KEY;
 /**
  * Please avoid using this class for any new application,
  * use {@link ReferenceConfigBase} instead.
+ *
+ * 服务消费 Consumer
+ *
+ * ServiceConfig -> Protocol -> Invoker -> ProxyFactory -> Ref
+ *
+ * Dubbo框架做服务消费也分为两大部分。
+ * 第一步通过持有远程服务实例生成Invoker,这个Invoker在客户端是核心的远程代理对象。
+ * 第二步会把Invoker通过动态代理转换成实现用户接口的动态代理引用。
+ * 这里的Invoker承载了网络连接、服务调用和重试等功能。
+ * 在客户端，它可能是一个远程的实现，也可能是一个集群实现。
+ *
+ * 框架真正进行服务引用的入口点在{@link org.apache.dubbo.config.spring.ReferenceBean#getObject()}。
+ * 不管是XML还是注解，都会转换成ReferenceBean,它继承自ReferenceConfig,在服务消费前也会按照5.2.1节的覆盖策略生效。
+ * 主要处理思路就是遍历服务的所有方法，如果没有值则会尝试从-D选项中读取，如果还没有则自动从配置文件dubbo.properties中读取。
+ *
  */
 public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
 
@@ -269,10 +284,19 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
         dispatch(new ReferenceConfigInitializedEvent(this, invoker));
     }
 
+    /**
+     * Dubbo支持多注册中心同时消费，如果配置了服务同时注册多个注册中心，
+     * 则会在 ReferenceConfig#createProxy中合并成一个 Invoker。
+     *
+     * @param map
+     * @return
+     */
     @SuppressWarnings({"unchecked", "rawtypes", "deprecation"})
     private T createProxy(Map<String, String> map) {
+        //优先判断是否在同一个JVM中包含要消费的服务
         if (shouldJvmRefer(map)) {
             URL url = new URL(LOCAL_PROTOCOL, LOCALHOST_VALUE, 0, interfaceClass.getName()).addParameters(map);
+            //直接使用injvm协议从内存获取实例
             invoker = REF_PROTOCOL.refer(interfaceClass, url);
             if (logger.isInfoEnabled()) {
                 logger.info("Using injvm service " + interfaceClass.getName());
@@ -287,9 +311,13 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                         if (StringUtils.isEmpty(url.getPath())) {
                             url = url.setPath(interfaceName);
                         }
+                        //如果是注册中心地址，在注册中心中追加消费者元数据信息
                         if (UrlUtils.isRegistry(url)) {
+                            //注册中心地址后添加refer存储服务消费元数据信息. 允许直连地址改成注册中心
                             urls.add(url.addParameterAndEncoded(REFER_KEY, StringUtils.toQueryString(map)));
                         } else {
+                            //非注册中心地址，直连某一台服务提供者。
+                            //指定服务调用协议、IP、端口。 这里的URL没有添加Refer和注册中心协议，默认是Dubbo会直接触发DubboProtocol进行远程消费，不会经过RegistryProtocol去做服务发现。
                             urls.add(ClusterUtils.mergeUrl(url, map));
                         }
                     }
@@ -315,22 +343,29 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
             }
 
             if (urls.size() == 1) {
+                /**
+                 *  //单注册中心消费，客户端启动拉取服务元数据 ，订阅provider、路由和配置变更
+                 *  //当经过注册中心消费时，主要通过{@link org.apache.dubbo.registry.integration.RegistryProtocol#refer(Class, URL)}触发数据拉取、订阅和服务Invoker转换等操作，其中最核心的数据结构是RegistryDirector
+                 */
+
                 invoker = REF_PROTOCOL.refer(interfaceClass, urls.get(0));
             } else {
                 List<Invoker<?>> invokers = new ArrayList<Invoker<?>>();
                 URL registryURL = null;
                 for (URL url : urls) {
+                    // 逐个获取注册中心的服务，并添加到invokers列表
                     invokers.add(REF_PROTOCOL.refer(interfaceClass, url));
                     if (UrlUtils.isRegistry(url)) {
                         registryURL = url; // use last registry url
                     }
                 }
+                //通过Cluster将多个Invoke转换成一个Invoker
                 if (registryURL != null) { // registry url is available
-                    // for multi-subscription scenario, use 'zone-aware' policy by default
+                    // for multi-subscription scenario, use 'zone-aware' policy by default。
                     URL u = registryURL.addParameterIfAbsent(CLUSTER_KEY, ZoneAwareCluster.NAME);
                     // The invoker wrap relation would be like: ZoneAwareClusterInvoker(StaticDirectory) -> FailoverClusterInvoker(RegistryDirectory, routing happens here) -> Invoker
                     invoker = CLUSTER.join(new StaticDirectory(u, invokers));
-                } else { // not a registry url, must be direct invoke.
+                } else { // not a registry url, must be direct invoke. 没有注册中心地址，必须直接调用。
                     invoker = CLUSTER.join(new StaticDirectory(invokers));
                 }
             }
@@ -362,7 +397,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
             URL consumerURL = new URL(CONSUMER_PROTOCOL, map.remove(REGISTER_IP_KEY), 0, map.get(INTERFACE_KEY), map);
             metadataService.publishServiceDefinition(consumerURL);
         }
-        // create service proxy
+        // create service proxy。创建ServiceProxy. 将Invoker转换成接口代理
         return (T) PROXY_FACTORY.getProxy(invoker, ProtocolUtils.isGeneric(generic));
     }
 
@@ -438,7 +473,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
             if (url != null && url.length() > 0) {
                 isJvmRefer = false;
             } else {
-                // by default, reference local service if there is
+                // by default, reference local service if there is. 默认的引用JVM本地服务.
                 isJvmRefer = InjvmProtocol.getInjvmProtocol().isInjvmRefer(tmpUrl);
             }
         } else {

@@ -22,6 +22,7 @@ import org.apache.dubbo.remoting.Dispatcher;
 
 /**
  * Direct dispatcher
+ * 所有方法调用和事件处理在I/O线程中，不推荐
  */
 public class DirectDispatcher implements Dispatcher {
 

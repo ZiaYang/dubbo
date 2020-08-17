@@ -107,6 +107,19 @@ public class DubboProtocol extends AbstractProtocol {
 
     private ExchangeHandler requestHandler = new ExchangeHandlerAdapter() {
 
+        /**
+         *
+         * 我们再来探讨RPC调用服务方处理Handler的逻辑。
+         * 在DubboProtocol中通过内部类继承自ExchangeHandlerAdapter,完成服务提供方Invoker实例的查找并进行服务的真实调用。
+         *
+         * Handler实现是触发业务方法调用的关键，在服务暴露时服务端已经按照特定规则(端口、接口名、接口版本和接口分组)把实例Invoker存储到HashMap中。
+         * 客户端调用过来时必须携带相同信息构造的key,找到对应Exporter然后调用。
+         *
+         * @param channel
+         * @param message
+         * @return
+         * @throws RemotingException
+         */
         @Override
         public CompletableFuture<Object> reply(ExchangeChannel channel, Object message) throws RemotingException {
 
@@ -117,7 +130,7 @@ public class DubboProtocol extends AbstractProtocol {
             }
 
             Invocation inv = (Invocation) message;
-            Invoker<?> invoker = getInvoker(channel, inv);
+            Invoker<?> invoker = getInvoker(channel, inv);//查找Invocation关联的Invoker，构造key查找当前已经暴露的服务exporter缓存。
             // need to consider backward-compatibility if it's a callback
             if (Boolean.TRUE.toString().equals(inv.getObjectAttachments().get(IS_CALLBACK_SERVICE_INVOKE))) {
                 String methodsStr = invoker.getUrl().getParameters().get("methods");
@@ -142,7 +155,7 @@ public class DubboProtocol extends AbstractProtocol {
                 }
             }
             RpcContext.getContext().setRemoteAddress(channel.getRemoteAddress());
-            Result result = invoker.invoke(inv);
+            Result result = invoker.invoke(inv);//调用业务方具体方法
             return result.thenApply(Function.identity());
         }
 
@@ -236,8 +249,8 @@ public class DubboProtocol extends AbstractProtocol {
     Invoker<?> getInvoker(Channel channel, Invocation inv) throws RemotingException {
         boolean isCallBackServiceInvoke = false;
         boolean isStubServiceInvoke = false;
-        int port = channel.getLocalAddress().getPort();
-        String path = (String) inv.getObjectAttachments().get(PATH_KEY);
+        int port = channel.getLocalAddress().getPort();//获取服务暴露协议的端口
+        String path = (String) inv.getObjectAttachments().get(PATH_KEY);//获取调用传递的接口
 
         // if it's callback service on client side
         isStubServiceInvoke = Boolean.TRUE.toString().equals(inv.getObjectAttachments().get(STUB_EVENT_KEY));
@@ -245,19 +258,21 @@ public class DubboProtocol extends AbstractProtocol {
             port = channel.getRemoteAddress().getPort();
         }
 
-        //callback
+        //callback 异步参数回调
         isCallBackServiceInvoke = isClientSide(channel) && !isStubServiceInvoke;
         if (isCallBackServiceInvoke) {
             path += "." + inv.getObjectAttachments().get(CALLBACK_SERVICE_KEY);
             inv.getObjectAttachments().put(IS_CALLBACK_SERVICE_INVOKE, Boolean.TRUE.toString());
         }
 
+        //根据端口、接口名、接口分组、接口版本构造唯一的serviceKey
         String serviceKey = serviceKey(
                 port,
                 path,
                 (String) inv.getObjectAttachments().get(VERSION_KEY),
                 (String) inv.getObjectAttachments().get(GROUP_KEY)
         );
+        //根据serviceKey从缓存中读取对应的exporter
         DubboExporter<?> exporter = (DubboExporter<?>) exporterMap.get(serviceKey);
 
         if (exporter == null) {
@@ -281,9 +296,10 @@ public class DubboProtocol extends AbstractProtocol {
     public <T> Exporter<T> export(Invoker<T> invoker) throws RpcException {
         URL url = invoker.getUrl();
 
-        // export service.
+        // export service. 根据服务分组、版本、接口和端口构造key
         String key = serviceKey(url);
         DubboExporter<T> exporter = new DubboExporter<T>(invoker, key, exporterMap);
+        //把exporter存储到单例DubboProtocol中。
         exporterMap.put(key, exporter);
 
         //export an stub service for dispatching event
@@ -300,12 +316,17 @@ public class DubboProtocol extends AbstractProtocol {
             }
         }
 
+        //服务初次暴露会创建监听服务器
         openServer(url);
         optimizeSerialization(url);
 
         return exporter;
     }
 
+    /**
+     * 对服务暴露做校验判断，因为同一个协议暴露有很多接口，只有初次暴露的接口才需要打 开端口监听
+     * @param url
+     */
     private void openServer(URL url) {
         // find server.
         String key = url.getAddress();
@@ -327,6 +348,13 @@ public class DubboProtocol extends AbstractProtocol {
         }
     }
 
+    /**
+     * 触发HeaderExchanger中的绑定方法，最后会调用底层NettyServer 进行处理。
+     * 在初始化Server过程中会初始化很多Handler用于支持一些特性 ，比如心跳、业务线程池处理编解码的Handler和口向应方法调用的Handler
+     *
+     * @param url
+     * @return
+     */
     private ProtocolServer createServer(URL url) {
         url = URLBuilder.from(url)
                 // send readonly event when server closes, it's enabled by default
@@ -343,6 +371,7 @@ public class DubboProtocol extends AbstractProtocol {
 
         ExchangeServer server;
         try {
+            //创建nettyServer并且初始化Handler
             server = Exchangers.bind(url, requestHandler);
         } catch (RemotingException e) {
             throw new RpcException("Fail to start server(url: " + url + ") " + e.getMessage(), e);
@@ -564,7 +593,7 @@ public class DubboProtocol extends AbstractProtocol {
 
     /**
      * Create new connection
-     *
+     * 创建一个新的Dubbo连接
      * @param url
      */
     private ExchangeClient initClient(URL url) {
@@ -573,7 +602,7 @@ public class DubboProtocol extends AbstractProtocol {
         String str = url.getParameter(CLIENT_KEY, url.getParameter(SERVER_KEY, DEFAULT_REMOTING_CLIENT));
 
         url = url.addParameter(CODEC_KEY, DubboCodec.NAME);
-        // enable heartbeat by default
+        // enable heartbeat by default 默认开启心跳检测
         url = url.addParameterIfAbsent(HEARTBEAT_KEY, String.valueOf(DEFAULT_HEARTBEAT));
 
         // BIO is not allowed since it has severe performance issue.
@@ -586,9 +615,11 @@ public class DubboProtocol extends AbstractProtocol {
         try {
             // connection should be lazy
             if (url.getParameter(LAZY_CONNECT_KEY, false)) {
+                //如果配置了lazy属性，则真实调用才会创建TCP连接.
                 client = new LazyConnectExchangeClient(url, requestHandler);
-
             } else {
+                //立即发起远程连接至服务提供者,默认netty传输。
+                //里面会触发HeaderExchanger#connect调用，用于支持心跳和在业务线程中编解码 Handler,最终会调用 Transporters#connect生成Netty客户端处理
                 client = Exchangers.connect(url, requestHandler);
             }
 

@@ -39,6 +39,7 @@ import static org.apache.dubbo.common.constants.RegistryConstants.ZONE_KEY;
 
 /**
  * When there're more than one registry for subscription.
+ * 多注册中心订阅场景
  *
  * This extension provides a strategy to decide how to distribute traffics among them:
  * 1. registry marked as 'preferred=true' has the highest priority.
