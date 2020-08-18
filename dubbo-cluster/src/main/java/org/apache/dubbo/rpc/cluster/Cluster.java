@@ -28,13 +28,19 @@ import org.apache.dubbo.rpc.cluster.support.FailoverCluster;
  * <a href="http://en.wikipedia.org/wiki/Computer_cluster">Cluster</a>
  * <a href="http://en.wikipedia.org/wiki/Fault-tolerant_system">Fault-Tolerant</a>
  *
+ * 容错的接口主要分为两大类，第一类是Cluster类，第二类是ClusterInvoker类。
+ * Cluster和ClusterInvoker之间的关系也非常简单：Cluster接口下面有多种不同的实现 ，每种实现中都需要
+ * 实现接口的join方法，在方法中会“new”一个对应的ClusterInvoker实现。
  */
+//SPI注解，动态扩展机制。默认failover策略
 @SPI(FailoverCluster.NAME)
 public interface Cluster {
 
     /**
      * Merge the directory invokers to a virtual invoker.
      * 合并调用者的目录到一个虚拟目录。将多个服务提供者聚合
+     *
+     * 每个实现类里都只有一个join方法，实现也很简单，直接“new” 一个对应的Clusterinvokero
      * @param <T>
      * @param directory
      * @return cluster invoker

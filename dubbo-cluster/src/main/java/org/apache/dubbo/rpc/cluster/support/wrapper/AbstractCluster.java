@@ -32,6 +32,12 @@ import java.util.List;
 
 import static org.apache.dubbo.common.constants.CommonConstants.REFERENCE_INTERCEPTOR_KEY;
 
+/**
+ *  * 容错的接口主要分为两大类，第一类是Cluster类，第二类是ClusterInvoker类。
+ *  * Cluster和ClusterInvoker之间的关系也非常简单：Cluster接口下面有多种不同的实现 ，每种实现中都需要
+ *  * 实现接口的join方法，在方法中会“new”一个对应的ClusterInvoker实现。
+ *
+ */
 public abstract class AbstractCluster implements Cluster {
 
     private <T> Invoker<T> buildClusterInterceptors(AbstractClusterInvoker<T> clusterInvoker, String key) {

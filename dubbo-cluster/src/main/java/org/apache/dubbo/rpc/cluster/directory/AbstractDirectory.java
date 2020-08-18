@@ -36,6 +36,15 @@ import static org.apache.dubbo.rpc.cluster.Constants.REFER_KEY;
 /**
  * Abstract implementation of Directory: Invoker list returned from this Directory's list method have been filtered by Routers
  *
+ * AbstractDirectory封装了通用逻辑，主要实现了四个方法：
+ *
+ * 检测Invoker是否可用，销毁所有Invoker, list方法，还留了一个抽象的模板方法doList方法给子类自行实现。
+ *
+ * list方法是最主要的方法，用于返回所有可用的list,逻辑分为两步：
+ * 调用抽象方法doList获取所有Invoker列表，不同子类有不同的实现；
+ * 遍历所有的router,进行Invoker的过滤，最后返回过滤好的Invoker列表。
+ *
+ * doList抽象方法则是返回所有的Invoker列表，由于是抽象方法，子类继承后必须要有自己的实现
  */
 public abstract class AbstractDirectory<T> implements Directory<T> {
 

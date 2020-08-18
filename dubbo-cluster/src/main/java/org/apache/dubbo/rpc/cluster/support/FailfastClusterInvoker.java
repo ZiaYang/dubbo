@@ -40,6 +40,19 @@ public class FailfastClusterInvoker<T> extends AbstractClusterInvoker<T> {
         super(directory);
     }
 
+    /**
+     * Failfast会在失败后直接抛出异常并返回，实现非常简单，步骤如下：
+     * （1） 校验。校验从AbstractClusterInvoker传入的Invoker列表是否为空。
+     * （2） 负载均衡。调用select方法做负载均衡，得到要调用的节点 。
+     * （3） 进行远程调用。在try代码块中调用invoker#invoke方法做远程调用。
+     *  如果捕获到异常，则直接封装成RpcException抛出。整个过程非常简短，也不会做任何中间信息的记录 。
+     *
+     * @param invocation
+     * @param invokers
+     * @param loadbalance
+     * @return
+     * @throws RpcException
+     */
     @Override
     public Result doInvoke(Invocation invocation, List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
         checkInvokers(invokers, invocation);

@@ -55,6 +55,7 @@ public class ReconnectTimerTask extends AbstractTimerTask {
                 logger.warn("Reconnect to channel " + channel + ", because heartbeat read idle time out: "
                         + idleTimeout + "ms");
                 try {
+                    //客户端空闲超时触发重连（默认超时为3min）
                     ((Client) channel).reconnect();
                 } catch (Exception e) {
                     logger.error(channel + "reconnect failed during idle time.", e);

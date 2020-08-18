@@ -30,6 +30,12 @@ import java.util.List;
 
 /**
  * StaticDirectory
+ *
+ * StaticDirectory Directory的静态列表实现，即将传入的Invoker列表封装成静态的Directory对象，里面的列表不会改变。
+ * 因为Cluster#join(Directory<T> directory)方法需要传入Directory对象，
+ * 因此该实现主要使用在一些上层已经知道自己要调用哪些Invoker,只需要包装一个 Directory对象返回即可的场景。
+ * 在ReferenceConfig#createProxy和 RegistryDirectory#toMergeMethodInvokerMap中使用了 Cluster#join 方法。
+ * StaticDirectory的逻辑非常简单，在构造方法中需要传入Invoker列表，doList方法则直接返回初始化时传入的列表。因此，不再详细说明。
  */
 public class StaticDirectory<T> extends AbstractDirectory<T> {
     private static final Logger logger = LoggerFactory.getLogger(StaticDirectory.class);

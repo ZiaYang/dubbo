@@ -45,6 +45,14 @@ import static org.apache.dubbo.rpc.cluster.Constants.FAIL_BACK_TASKS_KEY;
  * Especially useful for services of notification.
  *
  * <a href="http://en.wikipedia.org/wiki/Failback">Failback</a>
+ *
+ * Fallback如果调用失败，则会定期重试。将请求放入延时调用中，延后重试
+ *
+ * doInvoke的调用逻辑如下：
+ * (1) 校验传入的参数。校验从AbstractClusterInvoker传入的Invoker列表是否为空。
+ * (2) 负载均衡。调用select方法做负载均衡，得到要调用的节点。
+ * (3) 远程调用。在try代码块中调用invoker#invoke方法做远程调用，“catch”到异常后 直接把invocation保存到重试的ConcurrentHashMap中，并返回一个空的结果集。
+ * (4) 定时线程池会定时把ConcurrentHashMap中的失败请求拿出来重新请求，请求成功则 从ConcurrentHashMap中移除。如果请求还是失败，则异常也会被“catch”住，不会影响ConcurrentHashMap中后面的重试。
  */
 public class FailbackClusterInvoker<T> extends AbstractClusterInvoker<T> {
 
@@ -102,6 +110,7 @@ public class FailbackClusterInvoker<T> extends AbstractClusterInvoker<T> {
         } catch (Throwable e) {
             logger.error("Failback to invoke method " + invocation.getMethodName() + ", wait for retry in background. Ignored exception: "
                     + e.getMessage() + ", ", e);
+            //失败调用，加入缓存，稍后再重试.
             addFailed(loadbalance, invocation, invokers, invoker);
             return AsyncRpcResult.newDefaultAsyncResult(null, null, invocation); // ignore
         }

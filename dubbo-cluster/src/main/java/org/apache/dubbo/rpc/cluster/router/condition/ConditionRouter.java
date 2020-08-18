@@ -76,6 +76,15 @@ public class ConditionRouter extends AbstractRouter {
         init(url.getParameterAndDecoded(RULE_KEY));
     }
 
+    /**
+     *
+     * 根据URL的键rule获取对应的规则字符串。
+     * 以=>为界，把规则分成两段，前面部分 为whenRule,即消费者匹配条件；
+     * 后面部分为thenRule,即提供者地址列表的过滤条件。
+     * method = find* => host = 192.168.1.22 为例，其会被解析为whenRule:method = find*和thenRule:host=192.168.1.22
+     *
+     * @param rule
+     */
     public void init(String rule) {
         try {
             if (rule == null || rule.trim().length() == 0) {
@@ -95,12 +104,24 @@ public class ConditionRouter extends AbstractRouter {
         }
     }
 
+    /**
+     * 通过正则表达式不断循环匹配whenRule和thenRule字符串。
+     * 解析的时候，会根据key-value之间的分隔符对key-value做分类(如果A=B, 则分隔符为=)，支持的分隔符形式有：A=B、A&B、A!=B、A,B这4种形式。
+     * 最终参数都会被封装成一个个MatchPair对象，放入Map中保存。
+     * Map的key是参数值，value是MatchPair 对象。
+     * 若以代码清单7-8的规则为例，则会生成以method为key的when Map,以host为key
+     * 的 then Mapo value 则分别是包装了 find*和 192.168.1.22 的 MatchPair 对象。
+     * @param rule
+     * @return
+     * @throws ParseException
+     */
     private static Map<String, MatchPair> parseRule(String rule)
             throws ParseException {
         Map<String, MatchPair> condition = new HashMap<String, MatchPair>();
         if (StringUtils.isBlank(rule)) {
             return condition;
         }
+        //
         // Key-Value pair, stores both match and mismatch conditions
         MatchPair pair = null;
         // Multiple values
@@ -165,6 +186,22 @@ public class ConditionRouter extends AbstractRouter {
         return condition;
     }
 
+    /**
+     * ConditionRouter继承了 Router接口，需要实现接口的route方法。
+     * 该方法的主要功能是过滤出符合路由规则的Invoker列表，即做具体的条件匹配判断。
+     *
+     * (1) 校验。如果规则没有启用，则直接返回；如果传入的Invoker列表为空，则直接返回空。如果没有任何的whenRule匹配，即没有规则匹配 ，则直接返回传入的Invoker列表；
+     *     如果whenRule有匹配的，但是thenRule为空，即没有匹配上规则的Invoker,则返回空。
+     * (2) 遍历Invoker列表，通过thenRule找出所有符合规则的 Invoker加入集合。例如：匹配规则中的method名称和当前URL中的method是不是相等。
+     * (3) 返回结果。如果结果集不为空，则直接返回；如果结果集为空，但是规则配置了 force=true,即强制过滤，那么就会返回空结果集 ；非强制则不过滤，即返回所有Invoker列表。
+     *
+     * @param invokers   invoker list
+     * @param url        refer url
+     * @param invocation invocation
+     * @param <T>
+     * @return
+     * @throws RpcException
+     */
     @Override
     public <T> List<Invoker<T>> route(List<Invoker<T>> invokers, URL url, Invocation invocation)
             throws RpcException {
@@ -258,6 +295,17 @@ public class ConditionRouter extends AbstractRouter {
         return result;
     }
 
+    /**
+     *
+     * MatchPair对象是用来做什么的呢？这个对象一共有两个作用。
+     * 第一个作用是通配符的匹配和占位符的赋值。MatchPair对象是内部类，里面只有一个isMatch方法，用于判断值是否能匹配得上规则。
+     * 规则里的$、*等通配符都会在 MatchPair对象中进行匹配。
+     * 其中$支持protocol、username> password> host> port> path这几个动态参数的占位符 。
+     * 例如：规则中写了protocol,则会自动从URL中获取protocol的值，并赋值进去。
+     *
+     * 第二个作用是缓存规则。MatchPair对象 中有两个Set集合，一个用于保存匹配的规则，如=find*；另一个则用于保存不匹配的规则，
+     * 如!=find*o这两个集合在后续路由规则匹配的时候会使用到 。
+     */
     protected static final class MatchPair {
         final Set<String> matches = new HashSet<String>();
         final Set<String> mismatches = new HashSet<String>();

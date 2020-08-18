@@ -27,6 +27,10 @@ import static org.apache.dubbo.common.constants.CommonConstants.HEARTBEAT_EVENT;
 
 /**
  * HeartbeatTimerTask
+ * 心跳检测定时任务
+ * Dubbo默认客户端和服务端都会发送心跳报文，用来保持TCP长连接状态。
+ * 在客户端和服务端，Dubbo内部开启一个线程循环扫描并检测连接是否超时，在服务端如果发现超时则会主动关闭客户端连接，在客户端发现超时则会主动重新创建连接 。
+ * 默认心跳检测时间是 60秒，具体应用可以通过heartbeat进行配置
  */
 public class HeartbeatTimerTask extends AbstractTimerTask {
 
@@ -44,9 +48,10 @@ public class HeartbeatTimerTask extends AbstractTimerTask {
         try {
             Long lastRead = lastRead(channel);
             Long lastWrite = lastWrite(channel);
+            //TCP连接空闲超过心跳时间，发送事件报文
             if ((lastRead != null && now() - lastRead > heartbeat)
                     || (lastWrite != null && now() - lastWrite > heartbeat)) {
-                Request req = new Request();
+                Request req = new Request();//创建新的request对象
                 req.setVersion(Version.getProtocolVersion());
                 req.setTwoWay(true);
                 req.setEvent(HEARTBEAT_EVENT);

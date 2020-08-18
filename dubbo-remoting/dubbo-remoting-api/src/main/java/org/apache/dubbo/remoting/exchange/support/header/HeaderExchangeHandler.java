@@ -31,6 +31,7 @@ import org.apache.dubbo.remoting.exchange.ExchangeHandler;
 import org.apache.dubbo.remoting.exchange.Request;
 import org.apache.dubbo.remoting.exchange.Response;
 import org.apache.dubbo.remoting.exchange.support.DefaultFuture;
+import org.apache.dubbo.remoting.telnet.support.TelnetHandlerAdapter;
 import org.apache.dubbo.remoting.transport.ChannelHandlerDelegate;
 
 import java.net.InetSocketAddress;
@@ -63,9 +64,10 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
         this.handler = handler;
     }
 
-    //处理响应结果
+    //Consumer处理Provider的响应结果
     static void handleResponse(Channel channel, Response response) throws RemotingException {
         if (response != null && !response.isHeartbeat()) {
+            //唤醒阻塞线程并通知结果
             DefaultFuture.received(channel, response);
         }
     }
@@ -84,6 +86,13 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
         }
     }
 
+    /**
+     * Provider处理Consumer的请求
+     *
+     * @param channel
+     * @param req
+     * @throws RemotingException
+     */
     void handleRequest(final ExchangeChannel channel, Request req) throws RemotingException {
         Response res = new Response(req.getId(), req.getVersion());
         if (req.isBroken()) {
@@ -93,6 +102,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
             if (data == null) {
                 msg = null;
             } else if (data instanceof Throwable) {
+                //处理请求格式不正确（编解码），并把异常转换成字符串返回
                 msg = StringUtils.toString((Throwable) data);
             } else {
                 msg = data.toString();
@@ -103,9 +113,10 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
             channel.send(res);
             return;
         }
-        // find handler by message class.
+        // find handler by message class. 根据message的类找到对应的handler
         Object msg = req.getData();
         try {
+            //调用DubboProtocol#reply触发方法调用
             CompletionStage<Object> future = handler.reply(channel, msg);
             future.whenComplete((appResult, t) -> {
                 try {
@@ -122,6 +133,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
                 }
             });
         } catch (Throwable e) {
+            //方法调用失败，返回具体失败原因
             res.setStatus(Response.SERVICE_ERROR);
             res.setErrorMessage(StringUtils.toString(e));
             channel.send(res);
@@ -172,7 +184,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
     }
 
     /**
-     * 请求响应Handler具体实现
+     * 接收请求响应Handler具体实现
      *
      * @param channel channel.
      * @param message message.
@@ -185,9 +197,12 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
             // handle request. 处理请求
             Request request = (Request) message;
             if (request.isEvent()) {
+                //处理readonly事件，在channel中打标。
+                //用于Dubbo优雅停机。当注册中心反注册元数据时，因为网络原因，客户端不能及时感知注册中心事件，服务端会发送readonly报文告知下线
                 handlerEvent(channel, request);
             } else {
                 if (request.isTwoWay()) {
+                    //处理方法调用并返回给客户端
                     handleRequest(exchangeChannel, request);
                 } else {
                     handler.received(exchangeChannel, request.getData());
@@ -203,6 +218,9 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
                 Exception e = new Exception("Dubbo client can not supported string message: " + message + " in channel: " + channel + ", url: " + channel.getUrl());
                 logger.error(e.getMessage(), e);
             } else {
+                /**
+                 * 触发telnet调用 {@link TelnetHandlerAdapter#telnet(org.apache.dubbo.remoting.Channel, java.lang.String)}
+                 */
                 String echo = handler.telnet(channel, (String) message);
                 if (echo != null && echo.length() > 0) {
                     channel.send(echo);

@@ -186,6 +186,7 @@ public class HeaderExchangeClient implements ExchangeClient {
         return channel.hasAttribute(key);
     }
 
+    //开启心跳检测任务
     private void startHeartBeatTask(URL url) {
         if (!client.canHandleIdle()) {
             AbstractTimerTask.ChannelProvider cp = () -> Collections.singletonList(HeaderExchangeClient.this);

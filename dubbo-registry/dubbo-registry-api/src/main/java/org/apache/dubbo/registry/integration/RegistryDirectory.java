@@ -90,6 +90,13 @@ import static org.apache.dubbo.rpc.cluster.Constants.ROUTER_KEY;
 
 /**
  * RegistryDirectory
+ *
+ * RegistryDirectory属于Directory的动态列表实现，会自动从注册中心更新Invoker列表、配置信息、路由列表。
+ *
+ * RegistryDirectory中有两条比较重要的逻辑线，
+ * 第一条，框架与注册中心的订阅，并动态更 新本地Invoker列表、路由列表、配置信息的逻辑；
+ * 订阅和动态更新逻辑，这个逻辑主要涉及subscriber、notify、refreshInvoker三个方法。
+ * 第二条，子类实现父类的doList方法。
  */
 public class RegistryDirectory<T> extends AbstractDirectory<T> implements NotifyListener {
 
@@ -178,6 +185,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         return shouldRegister;
     }
 
+    //subscribe是订阅某个URL的更新信息
     public void subscribe(URL url) {
         setConsumerUrl(url);
         CONSUMER_CONFIGURATION_LISTENER.addNotifyListener(this);
@@ -225,19 +233,23 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         }
     }
 
-    //服务变更通知触发行为
+    //notify就是监听到配置中心对应的 URL的变化，然后更新本地的配置参数
+    //监听的URL 分为三类：配置configurators>路由规则router> Invoker列表
     @Override
     public synchronized void notify(List<URL> urls) {
         Map<String, List<URL>> categoryUrls = urls.stream()
                 .filter(Objects::nonNull)
                 .filter(this::isValidCategory)
                 .filter(this::isNotCompatibleFor26x)
+                 //根据url类型分类
                 .collect(Collectors.groupingBy(this::judgeCategory));
 
+        //新建三个List，用categoryUrls保存。 providers Invoker URL， 路由配置URL、配置URL
         List<URL> configuratorURLs = categoryUrls.getOrDefault(CONFIGURATORS_CATEGORY, Collections.emptyList());
         this.configurators = Configurator.toConfigurators(configuratorURLs).orElse(this.configurators);
 
         List<URL> routerURLs = categoryUrls.getOrDefault(ROUTERS_CATEGORY, Collections.emptyList());
+        //首先遍历所有router类型的URL,然后通过Router工厂把每个URL包装成路由规则，最后更新本地的路由信息。这个过程会忽略以empty开头的URL
         toRouters(routerURLs).ifPresent(this::addRouters);
 
         // providers
@@ -252,6 +264,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                 providerURLs = addressListener.notify(providerURLs, getConsumerUrl(),this);
             }
         }
+        //刷新覆写已有的invoker。 创建新的，销毁旧的。
         refreshOverrideAndInvoker(providerURLs);
     }
 
@@ -266,6 +279,12 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         return "";
     }
 
+    /**
+     * 对于Invoker类型的参数，如果是empty协议的URL,则会禁用该服务，并销毁本地缓存的Invoker；
+     * 如果监听到的Invoker类型URL都是空的，则说明没有更新，直接使用本地的老缓存；
+     * 如果监听到的Invoker类型URL不为空，则把新的URL和本地老的URL合并，创建新的Invoker,找出差异的老Invoker并销毁
+     * @param urls
+     */
     private void refreshOverrideAndInvoker(List<URL> urls) {
         // mock zookeeper://xxx?mock=return null
         overrideDirectoryUrl();
@@ -613,8 +632,18 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         }
     }
 
+    /**
+     *
+     * Notify中更新的Invoker列表最终会转换为一个字典Map<String, List<Invoker<T>>> methodInvokerMap。
+     * key是对应的方法名称 value是整个Invoker列表。
+     * doList的最终目标就是在字典里匹配出可以调用的Invoker列表，并返回给上层。
+     *
+     * @param invocation
+     * @return
+     */
     @Override
     public List<Invoker<T>> doList(Invocation invocation) {
+        //检查服务是否被禁用。 如果配置中心禁用了某个服务，则该服务无法被调用。 如果服务被禁用则会抛出异常。
         if (forbidden) {
             // 1. No service provider 2. Service providers are disabled
             throw new RpcException(RpcException.FORBIDDEN_EXCEPTION, "No provider available from registry " +

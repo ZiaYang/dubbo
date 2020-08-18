@@ -66,6 +66,9 @@ public interface Configurator extends Comparable<Configurator> {
      * <li>override://0.0.0.0/ without parameters means clearing the override</li>
      * </ol>
      *
+     * 对于Configurator类的参数，管理员可以在dubbo-admin动态配置功能上修改生产者的参数，这些参数会保存在配置中心的configurators类目下。
+     * notify监听到URL配置参 数的变化，会解析并更新本地的Configurator配置。
+     *
      * @param urls URL list to convert
      * @return converted configurator list
      */

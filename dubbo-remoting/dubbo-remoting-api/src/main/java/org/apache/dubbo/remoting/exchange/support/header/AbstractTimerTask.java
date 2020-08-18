@@ -77,10 +77,19 @@ public abstract class AbstractTimerTask implements TimerTask {
         timer.newTimeout(timeout.task(), tick, TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * 遍历所有的Channel,在服务端对应的是所有客户端连接，在客户端对应的是服务端连接。
+     * 主要忽略已经关闭的Socket连接。
+     *
+     * @param timeout a handle which is associated with this task
+     * @throws Exception
+     */
     @Override
     public void run(Timeout timeout) throws Exception {
+        //遍历所有channel
         Collection<Channel> c = channelProvider.getChannels();
         for (Channel channel : c) {
+            //忽略已经关闭的Channel
             if (channel.isClosed()) {
                 continue;
             }
@@ -89,6 +98,7 @@ public abstract class AbstractTimerTask implements TimerTask {
         reput(timeout, tick);
     }
 
+    //模板方法，交由子类实现
     protected abstract void doTask(Channel channel);
 
     interface ChannelProvider {

@@ -30,6 +30,15 @@ import java.util.List;
  * <a href="http://en.wikipedia.org/wiki/Directory_service">Directory Service</a>
  *
  * @see org.apache.dubbo.rpc.cluster.Cluster#join(Directory)
+ *
+ * 整个容错过程中首先会使用Directory#list来获取所有的Invoker列表。
+ * Directory也有多种实现子类，既可以提供静态的Invoker列表，也可以提供动态的Invoker列表。
+ * 静态列表是用户自己设置的Invoker列表；
+ * 动态列表根据注册中心的数据动态变化，动态更新Invoker列表的数据，整个过程对上层透明
+ *
+ * 熟悉的“套路”，使用了模板模式。
+ * Directory是顶层的接口。AbstractDirectory封装了通用的实现逻辑。
+ * 抽象类包含RegistryDirectory和StaticDirectory两个子类。
  */
 public interface Directory<T> extends Node {
 

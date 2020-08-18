@@ -42,6 +42,19 @@ public class FailsafeClusterInvoker<T> extends AbstractClusterInvoker<T> {
         super(directory);
     }
 
+    /**
+     * Failsafe调用时如果出现异常，则会直接忽略。实现也非常简单，步骤如下：
+     *
+     * （1） 校验传入的参数。校验从AbstractClusterInvoker传入的Invoker列表是否为空。
+     * （2） 负载均衡。调用select方法做负载均衡，得到要调用的节点。
+     *  (3) 远程调用。在try代码块中调用invoker#invoke方法做远程调用，“catch”到任何异常都直接“吞掉”，返回一个空的结果集。
+     *
+     * @param invocation
+     * @param invokers
+     * @param loadbalance
+     * @return
+     * @throws RpcException
+     */
     @Override
     public Result doInvoke(Invocation invocation, List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
         try {

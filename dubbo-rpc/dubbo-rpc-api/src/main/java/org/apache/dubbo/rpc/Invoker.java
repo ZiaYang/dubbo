@@ -24,6 +24,12 @@ import org.apache.dubbo.common.Node;
  * @see org.apache.dubbo.rpc.Protocol#refer(Class, org.apache.dubbo.common.URL)
  * @see org.apache.dubbo.rpc.InvokerListener
  * @see org.apache.dubbo.rpc.protocol.AbstractInvoker
+ *
+ * Invoker接口是最上层的接口，它下面分别有 AbstractClusterlnvoker、MockClusterlnvoker 和 MergeableClusterlnvoker 三个类。
+ * 其中，AbstractClusterlnvoker 是一个抽象类，其封装了通用的模板逻辑，如获取服务列表 、负载均衡、调用服务提供者等，并预留了一个dolnvoke方法需要子类自行实现。
+ * AbstractClusterInvoker下面有7个子类，分别实现了不同的集群容错机制。
+ *
+ * MockClusterlnvoker和MergeableClusterlnvoker由于并不适用于正常的集群容错逻辑，因此 没有挂在AbstractClusterlnvoker下面，而是直接继承了 Invoker接口。
  */
 public interface Invoker<T> extends Node {
 

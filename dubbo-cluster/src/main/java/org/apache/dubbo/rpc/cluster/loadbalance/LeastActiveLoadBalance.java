@@ -36,6 +36,21 @@ public class LeastActiveLoadBalance extends AbstractLoadBalance {
 
     public static final String NAME = "leastactive";
 
+    /**
+     *
+     * 最少活跃调用数，框架会记下每个Invoker的活跃数，每次只从活跃数最少的Invoker里选一个节点
+     * 这个负载均衡算法需要配合ActiveLimitFilter过滤器来计算每个接口方法的活跃数。
+     * 最少活跃负载均衡可以看作Random负载均衡的“加强版”，因为最后根据权重做负载均衡的时候，使用的算法和Random的一样。
+     *
+     * 如果活跃数相同则随机调用，活跃数指调用前后计数差。
+     * 使慢的提供者收到更少请求，因为越慢的提供者的调用前后计数差 会越大。
+     *
+     * @param invokers
+     * @param url
+     * @param invocation
+     * @param <T>
+     * @return
+     */
     @Override
     protected <T> Invoker<T> doSelect(List<Invoker<T>> invokers, URL url, Invocation invocation) {
         // Number of invokers

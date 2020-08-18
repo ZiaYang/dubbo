@@ -46,6 +46,16 @@ public class ActiveLimitFilter implements Filter, Filter.Listener {
 
     private static final String ACTIVELIMIT_FILTER_START_TIME = "activelimit_filter_start_time";
 
+    /**
+     * 在ActiveLimitFilter中，只要进来一个请求，该方法的调用的计数就会原子性+1。
+     * 整个Invoker调用过程会包在try-catch-finally中，无论调用结束或出现异常，finally中都会把计数原 子-1。
+     * 该原子计数就是最少活跃数
+     *
+     * @param invoker
+     * @param invocation
+     * @return
+     * @throws RpcException
+     */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         URL url = invoker.getUrl();
